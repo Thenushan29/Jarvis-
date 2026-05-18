@@ -1,0 +1,44 @@
+# ===== SECRETS — NEVER COMMIT =====
+.env
+.env.local
+.env.*.local
+data/gmail_credentials.json
+data/gmail_token.json
+data/wa_chrome_profile/
+
+# ===== PERSONAL DATA — local only =====
+data/reminders.json
+data/memory.json
+data/conversation.log
+
+# ===== PYTHON =====
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+
+# ===== VENV =====
+.venv/
+venv/
+env/
+
+# ===== AUDIO TEMP =====
+*.wav
+*.mp3
+
+# ===== LOGS =====
+install.log
+*.log
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ===== OS =====
+Thumbs.db
+.DS_Store

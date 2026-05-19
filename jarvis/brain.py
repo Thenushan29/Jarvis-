@@ -276,25 +276,35 @@ TOOL_HANDLERS: dict[str, Any] = {
 MAX_HISTORY_MESSAGES = 40
 
 
+_plugins_loaded_once = False
+
+
+def _load_plugins_once() -> None:
+    """Discover and merge plugins exactly once per process."""
+    global _plugins_loaded_once
+    if _plugins_loaded_once:
+        return
+    _plugins_loaded_once = True
+    try:
+        plugin_tools, plugin_handlers = load_plugins()
+        builtin_names = {t["name"] for t in TOOLS}
+        plugin_tools = reserved_names_check(builtin_names, plugin_tools)
+        if plugin_tools:
+            TOOLS.extend(plugin_tools)
+            TOOL_HANDLERS.update({
+                name: handler for name, handler in plugin_handlers.items()
+                if name in {t["name"] for t in plugin_tools}
+            })
+            print(f"[brain] plugins loaded: +{len(plugin_tools)} tool(s)")
+    except Exception as e:
+        print(f"[brain] plugin load skipped: {e}")
+
+
 class Brain:
     def __init__(self, client: LLMClient | None = None) -> None:
         self.client: LLMClient = client or make_llm_client()
         self.history: list = []
-
-        # Load and merge plugin tools (won't crash if no plugins dir).
-        try:
-            plugin_tools, plugin_handlers = load_plugins()
-            builtin_names = {t["name"] for t in TOOLS}
-            plugin_tools = reserved_names_check(builtin_names, plugin_tools)
-            if plugin_tools:
-                TOOLS.extend(plugin_tools)
-                TOOL_HANDLERS.update({
-                    name: handler for name, handler in plugin_handlers.items()
-                    if name in {t["name"] for t in plugin_tools}
-                })
-                print(f"[brain] plugins loaded: +{len(plugin_tools)} tool(s)")
-        except Exception as e:
-            print(f"[brain] plugin load skipped: {e}")
+        _load_plugins_once()
 
     def _system(self) -> str:
         mem = t_memory.memory_summary_for_prompt() or "(nothing yet)"

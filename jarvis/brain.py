@@ -24,6 +24,11 @@ from .tools import translate as t_translate
 from .tools import file_search as t_file_search
 from .tools import calendar_gcal as t_calendar
 from .tools import recall_similar as t_recall
+from .tools import web_fetch as t_web
+from .tools import news as t_news
+from .tools import document as t_doc
+from .tools import skills as t_skills
+from .tools import python_exec as t_pyexec
 from .plugins_loader import load_plugins, reserved_names_check
 from .personality import get_guidance as _personality_guidance
 from . import settings as _settings
@@ -201,6 +206,36 @@ TOOLS: list[dict] = [
           "Use when the user says 'be more X' or 'switch to Y mode'.",
           {"personality_id": {"type": "string"}}, ["personality_id"]),
 
+    # --- v6: web + news + documents + skills + sandbox ---
+    _tool("fetch_url",
+          "Fetch a URL, extract the readable text, and answer a question about it "
+          "(or summarize if no question). Use for 'what's on this page', "
+          "'summarize this article', 'what does Wikipedia say about X'.",
+          {"url": {"type": "string"}, "question": {"type": "string"}}, ["url"]),
+    _tool("news_briefing",
+          "Get top news headlines. Optional `topic` filters to a subject (e.g. 'AI', "
+          "'Tamil Nadu', 'climate'). With no topic, returns Hacker News top + general world headlines.",
+          {"topic": {"type": "string"}, "count": {"type": "integer"}}),
+    _tool("ask_document",
+          "Read a local file (PDF or text) and answer a question about its contents. "
+          "Use when user asks 'what's in this file', 'summarize this PDF', 'what does X say about Y'.",
+          {"path": {"type": "string"}, "question": {"type": "string"}}, ["path"]),
+    _tool("create_skill",
+          "Save a sequence of tool calls as a named skill the user can replay later. "
+          "Steps is a list of {tool, args} dicts. Use when user says 'create a skill called X that does Y, Z'.",
+          {"name": {"type": "string"}, "steps": {"type": "array"}}, ["name", "steps"]),
+    _tool("run_skill",
+          "Replay a previously saved skill by name. Use when user says 'run my morning routine' etc.",
+          {"name": {"type": "string"}}, ["name"]),
+    _tool("list_skills", "List all saved skill macros.", {}),
+    _tool("delete_skill", "Delete a saved skill by name.",
+          {"name": {"type": "string"}}, ["name"]),
+    _tool("run_python",
+          "Execute a Python snippet in an isolated subprocess for calculations / data "
+          "manipulation / date math. Has a hard timeout. Use for things the LLM can't "
+          "compute reliably (precise arithmetic, regex, date arithmetic).",
+          {"code": {"type": "string"}, "timeout": {"type": "integer"}}, ["code"]),
+
     # --- notes ---
     _tool("add_note",
           "Save a quick note to the user's notes file. Use when the user says "
@@ -292,6 +327,14 @@ TOOL_HANDLERS: dict[str, Any] = {
     "daily_briefing": lambda i: t_briefing.daily_briefing(),
     "recall_similar": lambda i: t_recall.recall_similar(i["query"], _int(i.get("k"), 5)),
     "set_personality": lambda i: _set_personality(i["personality_id"]),
+    "fetch_url": lambda i: t_web.fetch_url(i["url"], i.get("question", "")),
+    "news_briefing": lambda i: t_news.news_briefing(i.get("topic", ""), _int(i.get("count"), 5)),
+    "ask_document": lambda i: t_doc.ask_document(i["path"], i.get("question", "")),
+    "create_skill": lambda i: t_skills.create_skill(i["name"], i.get("steps") or []),
+    "run_skill": lambda i: t_skills.run_skill(i["name"]),
+    "list_skills": lambda i: t_skills.list_skills(),
+    "delete_skill": lambda i: t_skills.delete_skill(i["name"]),
+    "run_python": lambda i: t_pyexec.run_python(i["code"], _int(i.get("timeout"), 5)),
     "add_note": lambda i: t_notes.add_note(i["text"], i.get("tag", "")),
     "list_notes": lambda i: t_notes.list_notes(_int(i.get("max_results"), 10), i.get("query", "")),
     "read_clipboard": lambda i: t_clipboard.read_clipboard(),

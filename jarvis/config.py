@@ -11,15 +11,37 @@ load_dotenv(ROOT / ".env")
 os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
 os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 
-# Groq brain model. Default is the smartest free-tier model.
-GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
-# Vision model — must be a multimodal Groq model.
-GROQ_VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct").strip()
+# ===== LLM provider config =====
+# Pick one: groq | openai | anthropic | gemini | openrouter | ollama | together | openai_compat
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "").strip().lower()
+LLM_API_KEY = os.getenv("LLM_API_KEY", "").strip()
+LLM_MODEL = os.getenv("LLM_MODEL", "").strip()
+LLM_BASE_URL = os.getenv("LLM_BASE_URL", "").strip()
+
+# Optional: vision provider can differ from text provider.
+VISION_PROVIDER = os.getenv("VISION_PROVIDER", "").strip().lower()
+VISION_API_KEY = os.getenv("VISION_API_KEY", "").strip()
+VISION_MODEL = os.getenv("VISION_MODEL", "").strip()
+VISION_BASE_URL = os.getenv("VISION_BASE_URL", "").strip()
+
+
+# ===== Backwards-compat: old GROQ_API_KEY / GROQ_MODEL etc still accepted =====
+if not LLM_PROVIDER and (os.getenv("GROQ_API_KEY") or os.getenv("GROQ_MODEL")):
+    LLM_PROVIDER = "groq"
+    LLM_API_KEY = LLM_API_KEY or os.getenv("GROQ_API_KEY", "").strip()
+    LLM_MODEL = LLM_MODEL or os.getenv("GROQ_MODEL", "").strip()
+    VISION_MODEL = VISION_MODEL or os.getenv("GROQ_VISION_MODEL", "").strip()
+
+# Final default — Groq with their free key if user just dropped one in.
+if not LLM_PROVIDER:
+    LLM_PROVIDER = "groq"
+
+
+# ===== Voice / wake config =====
 TTS_VOICE_TAMIL = os.getenv("TTS_VOICE_TAMIL", "ta-IN-ValluvarNeural").strip()
 TTS_VOICE_ENGLISH = os.getenv("TTS_VOICE_ENGLISH", "en-US-GuyNeural").strip()
-WHISPER_MODEL = os.getenv("WHISPER_MODEL", "small").strip()
+WHISPER_MODEL = os.getenv("WHISPER_MODEL", "tiny").strip()
 MAX_LISTEN_SECONDS = int(os.getenv("MAX_LISTEN_SECONDS", "15"))
 
 DATA_DIR = ROOT / "data"
@@ -32,8 +54,8 @@ FOLLOWUP_SECONDS = int(os.getenv("FOLLOWUP_SECONDS", "8"))
 
 def assert_keys():
     missing = []
-    if not GROQ_API_KEY:
-        missing.append("GROQ_API_KEY")
+    if not LLM_API_KEY:
+        missing.append("LLM_API_KEY")
     if missing:
         raise RuntimeError(
             "Missing required keys in .env: " + ", ".join(missing)

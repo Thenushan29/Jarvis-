@@ -1,16 +1,13 @@
-"""Groq brain: takes user text, plans, calls tools, returns spoken reply.
+"""Provider-agnostic brain: takes user text, plans, calls tools, returns spoken reply.
 
-Uses Groq's OpenAI-compatible chat completions API with tool/function calling.
-Long-term memory is injected into the system prompt each turn.
+Uses an LLMClient (see jarvis/llm/) so users can swap providers via .env
+without changing this file. Long-term memory is injected into the system prompt.
 """
 from __future__ import annotations
-import json
 import datetime as _dt
 from typing import Any
 
-from groq import Groq
-
-from .config import GROQ_API_KEY, GROQ_MODEL
+from .llm import make_llm_client, LLMClient
 from .tools import apps as t_apps
 from .tools import system as t_system
 from .tools import reminders as t_reminders
@@ -45,14 +42,10 @@ What you remember about the user:
 
 
 def _tool(name: str, description: str, properties: dict, required: list | None = None) -> dict:
-    """Helper to build an OpenAI-format tool definition."""
     params: dict = {"type": "object", "properties": properties}
     if required:
         params["required"] = required
-    return {
-        "type": "function",
-        "function": {"name": name, "description": description, "parameters": params},
-    }
+    return {"name": name, "description": description, "parameters": params}
 
 
 TOOLS: list[dict] = [
@@ -86,7 +79,7 @@ TOOLS: list[dict] = [
     _tool("screenshot", "Save a screenshot to Desktop.", {}),
     _tool("current_time", "Get the current local time.", {}),
 
-    # --- media (Spotify, YouTube, any media player) ---
+    # --- media keys ---
     _tool("media_play_pause", "Play or pause whatever is currently playing music or video (Spotify, YouTube, etc).", {}),
     _tool("media_next", "Skip to the next track.", {}),
     _tool("media_prev", "Go to the previous track.", {}),
@@ -94,7 +87,7 @@ TOOLS: list[dict] = [
 
     # --- long-term memory ---
     _tool("remember",
-          "Save a fact for later sessions. Use short kebab-case keys (e.g., 'birthday', 'amma-phone', 'work-hours').",
+          "Save a fact for later sessions. Use short kebab-case keys (e.g., 'birthday', 'amma-phone').",
           {"key": {"type": "string"}, "value": {"type": "string"}}, ["key", "value"]),
     _tool("recall", "Recall a saved fact by key, or list all if no key.", {"key": {"type": "string"}}),
     _tool("forget", "Delete a saved fact by key.", {"key": {"type": "string"}}, ["key"]),
@@ -110,33 +103,31 @@ TOOLS: list[dict] = [
           "Run a PowerShell command on Windows. Dangerous commands are refused. Confirm with user first.",
           {"command": {"type": "string"}, "timeout": {"type": "integer", "default": 30}}, ["command"]),
 
-    # --- winget app install ---
+    # --- winget ---
     _tool("winget_search", "Search winget for an app.", {"query": {"type": "string"}}, ["query"]),
     _tool("winget_install", "Install an app by winget package ID. Confirm with user first.",
           {"package_id": {"type": "string"}}, ["package_id"]),
     _tool("winget_uninstall", "Uninstall an app by winget package ID. Confirm with user first.",
           {"package_id": {"type": "string"}}, ["package_id"]),
 
-    # --- screen vision ---
+    # --- vision ---
     _tool("describe_screen",
-          "Take a screenshot and ask the vision model what's on it. Use when user asks 'what's on my screen', 'read the screen', or wants help with something visible.",
+          "Take a screenshot and ask the vision model what's on it.",
           {"question": {"type": "string"}}),
 
     # --- whatsapp ---
     _tool("send_whatsapp",
-          "Send a WhatsApp message via WhatsApp Web. Recipient can be a contact name OR phone with country code (+919876543210). Confirm with user first.",
+          "Send a WhatsApp message via WhatsApp Web. Recipient can be a contact name OR phone with country code. Confirm first.",
           {"recipient": {"type": "string"}, "message": {"type": "string"}}, ["recipient", "message"]),
-    _tool("list_whatsapp_chats", "List the most recent WhatsApp chats with sender + last message preview.",
+    _tool("list_whatsapp_chats", "List the most recent WhatsApp chats with last-message preview.",
           {"count": {"type": "integer", "default": 10}}),
     _tool("read_whatsapp_chat",
-          "Open a WhatsApp chat by contact name and read the last N messages (incoming and outgoing).",
+          "Open a WhatsApp chat by contact name and read the last N messages.",
           {"name": {"type": "string"}, "count": {"type": "integer", "default": 10}}, ["name"]),
 
     # --- gmail ---
-    _tool("list_inbox", "List the latest N inbox emails (sender, subject, snippet).",
-          {"max_results": {"type": "integer", "default": 5}}),
-    _tool("search_emails",
-          "Search Gmail. Query examples: 'from:boss', 'is:unread', 'subject:invoice newer_than:7d'.",
+    _tool("list_inbox", "List the latest N inbox emails.", {"max_results": {"type": "integer", "default": 5}}),
+    _tool("search_emails", "Search Gmail. Examples: 'from:boss', 'is:unread', 'subject:invoice newer_than:7d'.",
           {"query": {"type": "string"}, "max_results": {"type": "integer", "default": 5}}, ["query"]),
     _tool("send_email", "Send an email via Gmail. Confirm recipient + body with user first.",
           {"to": {"type": "string"}, "subject": {"type": "string"}, "body": {"type": "string"}},
@@ -185,22 +176,20 @@ TOOL_HANDLERS: dict[str, Any] = {
 }
 
 
-# Cap conversation history. Older turns are dropped to keep within token budget.
 MAX_HISTORY_MESSAGES = 40
 
 
 class Brain:
-    def __init__(self) -> None:
-        self.client = Groq(api_key=GROQ_API_KEY)
-        self.history: list[dict] = []   # OpenAI/Groq-style messages (no system msg here)
+    def __init__(self, client: LLMClient | None = None) -> None:
+        self.client: LLMClient = client or make_llm_client()
+        self.history: list = []
 
-    def _system_message(self) -> dict:
+    def _system(self) -> str:
         mem = t_memory.memory_summary_for_prompt() or "(nothing yet)"
-        content = SYSTEM_PROMPT.format(
+        return SYSTEM_PROMPT.format(
             now=_dt.datetime.now().strftime("%A %d %B %Y, %I:%M %p"),
             memory=mem,
         )
-        return {"role": "system", "content": content}
 
     def _exec_tool(self, name: str, args: dict, lang: str) -> str:
         fn = TOOL_HANDLERS.get(name)
@@ -214,26 +203,32 @@ class Brain:
             return f"Tool '{name}' failed: {e}"
 
     def _trim_history(self) -> None:
-        """Drop oldest messages while keeping tool_call → tool_result pairs intact."""
         if len(self.history) <= MAX_HISTORY_MESSAGES:
             return
         drop = len(self.history) - MAX_HISTORY_MESSAGES
-        # Never start with a stray 'tool' message (orphan tool_result).
-        while drop < len(self.history) and self.history[drop].get("role") == "tool":
-            drop += 1
-        # Never start with an assistant tool_calls message either.
-        if drop < len(self.history):
+        # Walk forward to a safe boundary — never start with an orphan tool response.
+        while drop < len(self.history):
             m = self.history[drop]
-            if m.get("role") == "assistant" and m.get("tool_calls"):
+            role = m.get("role")
+            if role == "tool":
                 drop += 1
+                continue
+            if role == "assistant" and self.client.has_unresolved_tool_calls(m):
+                drop += 1
+                continue
+            if role == "user" and isinstance(m.get("content"), list):
+                # Anthropic-style tool_result block — skip past it.
+                if any((isinstance(b, dict) and b.get("type") == "tool_result") for b in m["content"]):
+                    drop += 1
+                    continue
+            break
         self.history = self.history[drop:]
 
     def _drop_unresolved_tail(self) -> None:
-        """If history ends with assistant tool_calls but no tool responses, drop the bad tail."""
         if not self.history:
             return
         last = self.history[-1]
-        if last.get("role") == "assistant" and last.get("tool_calls"):
+        if last.get("role") == "assistant" and self.client.has_unresolved_tool_calls(last):
             self.history.pop()
             if self.history and self.history[-1].get("role") == "user":
                 self.history.pop()
@@ -242,49 +237,29 @@ class Brain:
         self.history = []
 
     def think(self, user_text: str, lang: str = "en") -> str:
-        """Run one user turn through Groq, handling tool calls. Return final spoken reply."""
-        self.history.append({"role": "user", "content": user_text})
+        """Run one user turn. Handles multi-step tool calling. Returns final spoken reply."""
+        self.history.append(self.client.make_user_message(user_text))
         try:
             for _ in range(6):
-                resp = self.client.chat.completions.create(
-                    model=GROQ_MODEL,
-                    messages=[self._system_message()] + self.history,
-                    tools=TOOLS,
-                    tool_choice="auto",
-                    max_tokens=1024,
-                    temperature=0.6,
-                )
-                msg = resp.choices[0].message
+                response = self.client.chat(self._system(), self.history, TOOLS)
+                self.history.append(self.client.make_assistant_message(response))
 
-                assistant_msg: dict = {"role": "assistant", "content": msg.content or ""}
-                if msg.tool_calls:
-                    assistant_msg["tool_calls"] = [
-                        {
-                            "id": tc.id,
-                            "type": "function",
-                            "function": {"name": tc.function.name, "arguments": tc.function.arguments},
-                        }
-                        for tc in msg.tool_calls
-                    ]
-                self.history.append(assistant_msg)
-
-                if not msg.tool_calls:
+                if not response.tool_calls:
                     self._trim_history()
-                    return (msg.content or "Done.").strip()
+                    return response.text or "Done."
 
-                for tc in msg.tool_calls:
-                    raw_args = tc.function.arguments or "{}"
-                    try:
-                        args = json.loads(raw_args) if isinstance(raw_args, str) else dict(raw_args)
-                    except json.JSONDecodeError:
-                        args = {}
-                    result = self._exec_tool(tc.function.name, args, lang)
-                    print(f"[tool] {tc.function.name}({args}) -> {str(result)[:200]}")
-                    self.history.append({
-                        "role": "tool",
-                        "tool_call_id": tc.id,
-                        "content": str(result),
-                    })
+                # Execute every tool call from this turn.
+                results: list[tuple[str, str]] = []
+                for tc in response.tool_calls:
+                    result = self._exec_tool(tc.name, tc.arguments, lang)
+                    print(f"[tool] {tc.name}({tc.arguments}) -> {str(result)[:200]}")
+                    results.append((tc.id, str(result)))
+
+                tool_msg = self.client.make_tool_results(results)
+                if isinstance(tool_msg, list):
+                    self.history.extend(tool_msg)
+                else:
+                    self.history.append(tool_msg)
 
             self._drop_unresolved_tail()
             return "Sorry, I got stuck in a tool loop."

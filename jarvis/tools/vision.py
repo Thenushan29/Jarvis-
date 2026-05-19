@@ -1,23 +1,26 @@
-"""Screen vision via Groq's multimodal Llama 4 Scout."""
+"""Provider-agnostic screen vision.
+
+Uses whatever vision provider is configured (defaults to the LLM provider).
+"""
 import base64
 import io
 
-from groq import Groq
-
-from ..config import GROQ_API_KEY, GROQ_VISION_MODEL
-
-_client: Groq | None = None
+from ..llm import make_vision_client
 
 
-def _get_client() -> Groq:
-    global _client
+_client = None
+_provider_kind = None
+
+
+def _get() -> tuple[str, object]:
+    """Lazily instantiate the vision client (so import order doesn't matter)."""
+    global _client, _provider_kind
     if _client is None:
-        _client = Groq(api_key=GROQ_API_KEY)
-    return _client
+        _provider_kind, _client = make_vision_client()
+    return _provider_kind, _client
 
 
 def _grab_screenshot_b64() -> str:
-    """Capture full screen, return base64-encoded PNG."""
     from PIL import ImageGrab, Image
     try:
         img = ImageGrab.grab(all_screens=True)
@@ -34,7 +37,6 @@ def _grab_screenshot_b64() -> str:
 
 
 def describe_screen(question: str = "") -> str:
-    """Take a screenshot and ask the vision model about it."""
     try:
         b64 = _grab_screenshot_b64()
     except Exception as e:
@@ -42,8 +44,29 @@ def describe_screen(question: str = "") -> str:
 
     prompt = question.strip() or "Describe what's on this screen in 1-2 short sentences."
     try:
-        resp = _get_client().chat.completions.create(
-            model=GROQ_VISION_MODEL,
+        kind, client = _get()
+    except Exception as e:
+        return f"Vision provider not configured: {e}"
+
+    try:
+        if kind == "anthropic":
+            resp = client.client.messages.create(
+                model=client.model,
+                max_tokens=400,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": b64}},
+                        {"type": "text", "text": prompt},
+                    ],
+                }],
+            )
+            return "".join(b.text for b in resp.content if getattr(b, "type", "") == "text").strip() \
+                   or "I couldn't make out the screen."
+
+        # openai_compat (Groq/OpenAI/Gemini/etc.)
+        resp = client.client.chat.completions.create(
+            model=client.model,
             messages=[{
                 "role": "user",
                 "content": [

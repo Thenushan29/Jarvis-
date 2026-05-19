@@ -5,7 +5,7 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QComboBox,
     QPushButton, QLabel, QHBoxLayout, QDialogButtonBox, QMessageBox,
-    QGroupBox, QTabWidget, QWidget,
+    QGroupBox, QTabWidget, QWidget, QCheckBox,
 )
 
 from ..settings import load as load_settings, save as save_settings, PROVIDER_INFO, get_models_for
@@ -209,7 +209,27 @@ class SettingsDialog(QDialog):
         page = QWidget()
         layout = QVBoxLayout(page)
 
-        form = QFormLayout()
+        # System behavior group
+        sys_group = QGroupBox("System behavior")
+        sys_layout = QFormLayout(sys_group)
+
+        self.autostart_check = QCheckBox("Start Jarvis automatically when Windows boots")
+        self.autostart_check.setChecked(bool(s.get("auto_start_on_boot", False)))
+        sys_layout.addRow(self.autostart_check)
+
+        self.ptt_check = QCheckBox("Enable push-to-talk hotkey")
+        self.ptt_check.setChecked(bool(s.get("ptt_enabled", True)))
+        sys_layout.addRow(self.ptt_check)
+
+        self.ptt_edit = QLineEdit(s.get("ptt_hotkey", "ctrl+alt+j"))
+        self.ptt_edit.setPlaceholderText("e.g. ctrl+alt+j  or  ctrl+shift+space")
+        sys_layout.addRow("Hotkey:", self.ptt_edit)
+
+        layout.addWidget(sys_group)
+
+        # Voice loop timing
+        timing_group = QGroupBox("Voice loop timing")
+        form = QFormLayout(timing_group)
         self.whisper_combo = QComboBox()
         for w in ("tiny", "base", "small", "medium", "large-v3"):
             self.whisper_combo.addItem(w)
@@ -223,14 +243,15 @@ class SettingsDialog(QDialog):
 
         self.max_listen_edit = QLineEdit(str(s.get("max_listen_seconds", 15)))
         form.addRow("Max listen seconds:", self.max_listen_edit)
-
-        layout.addLayout(form)
+        layout.addWidget(timing_group)
 
         hint = QLabel(
             "<small><b>Whisper</b>: 'tiny' = fast (~0.3s), less accurate. 'small' = balanced. "
             "'large-v3' = best (esp. Tamil) but ~3 GB and slower.<br>"
             "<b>Follow-up seconds</b>: after a reply, Jarvis listens this many seconds for a "
-            "continuation without needing the wake word again.</small>"
+            "continuation without needing the wake word again.<br>"
+            "<b>Hotkey</b>: works system-wide. Examples: <i>ctrl+alt+j</i>, <i>ctrl+shift+space</i>, "
+            "<i>f9</i>.</small>"
         )
         hint.setWordWrap(True)
         hint.setStyleSheet("color: #666;")
@@ -371,7 +392,16 @@ class SettingsDialog(QDialog):
             "whisper_model": self.whisper_combo.currentText(),
             "followup_seconds": self._safe_int(self.followup_edit.text(), 8),
             "max_listen_seconds": self._safe_int(self.max_listen_edit.text(), 15),
+            "auto_start_on_boot": self.autostart_check.isChecked(),
+            "ptt_enabled": self.ptt_check.isChecked(),
+            "ptt_hotkey": self.ptt_edit.text().strip() or "ctrl+alt+j",
         })
+        # Apply auto-start immediately so user sees it work.
+        try:
+            from .. import autostart
+            autostart.sync_with(self.autostart_check.isChecked())
+        except Exception:
+            pass
         QMessageBox.information(
             self, "Saved",
             "Settings saved.\n\nIf Jarvis is currently running, click <b>Stop</b> then <b>Start</b> "

@@ -9,7 +9,10 @@ from PySide6.QtGui import QFont, QColor, QTextCharFormat, QTextCursor
 
 from .worker import JarvisWorker
 from .settings_dialog import SettingsDialog
+from .conversation_viewer import ConversationViewer
 from ..settings import load as load_settings, save as save_settings
+from ..hotkey import GlobalHotkey
+from .. import autostart
 
 
 STATUS_COLOR = {
@@ -92,11 +95,45 @@ class MainWindow(QMainWindow):
         self.setStatusBar(QStatusBar(self))
         self.statusBar().showMessage(f"Provider: {s.get('llm_provider','?')}  |  Model: {s.get('llm_model') or '(default)'}")
 
+        # Conversation history button
+        self.history_btn = QPushButton("📜  History")
+        status_row.addWidget(self.history_btn)
+
+        # Global push-to-talk hotkey.
+        self._hotkey = GlobalHotkey(s.get("ptt_hotkey", "ctrl+alt+j"), self._on_hotkey)
+        if s.get("ptt_enabled", True):
+            self._hotkey.start()
+
+        # Sync auto-start preference with the Windows registry (best-effort).
+        try:
+            autostart.sync_with(bool(s.get("auto_start_on_boot", False)))
+        except Exception:
+            pass
+
         # Wire
         self.start_btn.clicked.connect(self._start)
         self.stop_btn.clicked.connect(self._stop)
         self.settings_btn.clicked.connect(self._open_settings)
+        self.history_btn.clicked.connect(self._open_history)
         self.talk_btn.clicked.connect(lambda: self.worker.request_voice_turn())
+
+    # --- hotkey handling ---
+    def _on_hotkey(self):
+        """Global push-to-talk: if running, trigger a voice turn; else start in voice mode."""
+        from PySide6.QtCore import QTimer
+        if self.worker.is_running():
+            self.worker.request_voice_turn()
+        else:
+            for i in range(self.mode_combo.count()):
+                if self.mode_combo.itemData(i) == "voice":
+                    self.mode_combo.setCurrentIndex(i)
+                    break
+            self._start()
+            QTimer.singleShot(800, self.worker.request_voice_turn)
+
+    def _open_history(self):
+        dlg = ConversationViewer(self)
+        dlg.exec()
 
     # --- actions ---
     def _start(self):

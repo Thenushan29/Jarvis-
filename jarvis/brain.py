@@ -17,6 +17,7 @@ from .tools import winget as t_winget
 from .tools import vision as t_vision
 from .tools import whatsapp as t_whatsapp
 from .tools import gmail as t_gmail
+from .tools import briefing as t_briefing
 
 SYSTEM_PROMPT = """You are Jarvis, a personal voice assistant for the user on their Windows PC.
 
@@ -61,8 +62,13 @@ TOOLS: list[dict] = [
 
     # --- reminders ---
     _tool("add_reminder",
-          "Add a reminder. 'when' accepts 'YYYY-MM-DD HH:MM', 'in 30 minutes', 'in 2 hours', 'tomorrow 9am', 'today 6pm'.",
-          {"text": {"type": "string"}, "when": {"type": "string"}}, ["text", "when"]),
+          "Add a reminder. 'when' accepts 'YYYY-MM-DD HH:MM', 'in 30 minutes', 'in 2 hours', "
+          "'tomorrow 9am', 'today 6pm', or a day-of-week like 'monday 9am'. "
+          "'recurrence' is one of: once (default) | daily | weekly | weekdays | monthly | yearly.",
+          {"text": {"type": "string"},
+           "when": {"type": "string"},
+           "recurrence": {"type": "string", "default": "once"}},
+          ["text", "when"]),
     _tool("list_reminders", "List pending reminders.", {}),
     _tool("delete_reminder", "Delete a reminder by short id.",
           {"reminder_id": {"type": "string"}}, ["reminder_id"]),
@@ -132,6 +138,13 @@ TOOLS: list[dict] = [
     _tool("send_email", "Send an email via Gmail. Confirm recipient + body with user first.",
           {"to": {"type": "string"}, "subject": {"type": "string"}, "body": {"type": "string"}},
           ["to", "subject", "body"]),
+
+    # --- daily briefing ---
+    _tool("daily_briefing",
+          "Give a short voice-friendly daily briefing: greeting, today's reminders, "
+          "and unread emails. Use when the user says 'good morning', 'brief me', "
+          "'what's my day', or asks for a summary.",
+          {}),
 ]
 
 TOOL_HANDLERS: dict[str, Any] = {
@@ -139,7 +152,9 @@ TOOL_HANDLERS: dict[str, Any] = {
     "open_website": lambda i: t_apps.open_website(i["url"]),
     "web_search": lambda i: t_apps.web_search(i["query"]),
     "play_on_youtube": lambda i: t_apps.play_on_youtube(i["query"]),
-    "add_reminder": lambda i, lang="en": t_reminders.add_reminder(i["text"], i["when"], lang),
+    "add_reminder": lambda i, lang="en": t_reminders.add_reminder(
+        i["text"], i["when"], lang, i.get("recurrence", "once")
+    ),
     "list_reminders": lambda i: t_reminders.list_reminders(),
     "delete_reminder": lambda i: t_reminders.delete_reminder(i["reminder_id"]),
     "volume_up": lambda i: t_system.volume_up(i.get("steps", 5)),
@@ -173,6 +188,7 @@ TOOL_HANDLERS: dict[str, Any] = {
     "list_inbox": lambda i: t_gmail.list_inbox(i.get("max_results", 5)),
     "search_emails": lambda i: t_gmail.search_emails(i["query"], i.get("max_results", 5)),
     "send_email": lambda i: t_gmail.send_email(i["to"], i["subject"], i["body"]),
+    "daily_briefing": lambda i: t_briefing.daily_briefing(),
 }
 
 

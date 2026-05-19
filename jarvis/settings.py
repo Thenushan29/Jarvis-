@@ -44,6 +44,8 @@ SCHEMA: dict[str, Any] = {
     "followup_seconds": 8,
     "auto_start_on_boot": False,
     "default_mode": "wake",     # wake | voice | text
+    "ptt_enabled": True,
+    "ptt_hotkey": "ctrl+alt+j",
 }
 
 

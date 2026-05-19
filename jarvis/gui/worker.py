@@ -109,6 +109,12 @@ class JarvisWorker(QObject):
         prefix = "நினைவூட்டல்: " if lang.startswith("ta") else "Reminder: "
         self._emit_log("reminder", text)
         conv_log("reminder", text, lang)
+        # Native Windows toast in addition to voice.
+        try:
+            from ..notify import toast
+            toast("Jarvis Reminder", text, timeout=10)
+        except Exception as e:
+            print(f"[reminder] toast failed: {e}")
         try:
             speak(prefix + text, lang)
         except Exception as e:

@@ -73,38 +73,81 @@ async def _synthesize(text: str, voice: str, rate: str, pitch: str, out_path: Pa
     await comm.save(str(out_path))
 
 
+import queue
+import re
+
+_SENTENCE_SPLIT = re.compile(r'(?<=[.!?।])\s+|\n+')
+
+
+def _split_sentences(text: str) -> list[str]:
+    parts = [p.strip() for p in _SENTENCE_SPLIT.split(text) if p.strip()]
+    # Don't over-split — only stream if there are multiple sentences.
+    return parts if len(parts) > 1 else [text]
+
+
+def _synth_one(text: str, preset: dict) -> Path | None:
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
+        path = Path(f.name)
+    try:
+        asyncio.run(_synthesize(text, preset["voice"], preset["rate"], preset["pitch"], path))
+        return path
+    except Exception as e:
+        print(f"[speak] synth failed for chunk: {e}")
+        try:
+            path.unlink(missing_ok=True)
+        except Exception:
+            pass
+        return None
+
+
 def speak(text: str, lang: str = "en") -> None:
-    """Speak text aloud in the matching language preset. Blocks until done. Thread-safe."""
+    """Speak text aloud. Streams sentence-by-sentence — first audio starts
+    as soon as the first sentence is synthesized; later sentences are
+    synthesized in parallel with playback. Thread-safe."""
     text = (text or "").strip()
     if not text:
         return
 
     preset = _preset_for(lang)
+    sentences = _split_sentences(text)
+
     with _speak_lock:
-        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
-            path = Path(f.name)
-        try:
-            try:
-                asyncio.run(_synthesize(text, preset["voice"], preset["rate"], preset["pitch"], path))
-            except Exception as e:
-                print(f"[speak] TTS synth failed: {e}")
-                return
-            if not _ensure_mixer():
-                print(f"[speak:text-only] {text}")
-                return
+        if not _ensure_mixer():
+            print(f"[speak:text-only] {text}")
+            return
+
+        # Producer: synth sentences in order, push file paths to a queue.
+        audio_q: queue.Queue = queue.Queue()
+        produced_count = {"n": 0}
+
+        def producer():
+            for s in sentences:
+                p = _synth_one(s, preset)
+                if p:
+                    audio_q.put(p)
+                    produced_count["n"] += 1
+            audio_q.put(None)
+
+        threading.Thread(target=producer, daemon=True).start()
+
+        # Consumer: play each chunk as it arrives.
+        while True:
+            path = audio_q.get()
+            if path is None:
+                break
             try:
                 pygame.mixer.music.load(str(path))
                 pygame.mixer.music.play()
                 while pygame.mixer.music.get_busy():
-                    pygame.time.wait(80)
+                    pygame.time.wait(60)
                 pygame.mixer.music.unload()
             except Exception as e:
                 print(f"[speak] playback failed: {e}")
-        finally:
-            try:
-                path.unlink(missing_ok=True)
-            except Exception:
-                pass
+            finally:
+                try:
+                    path.unlink(missing_ok=True)
+                except Exception:
+                    pass
 
 
 def preview_voice(preset: dict, sample_text: str = "") -> str | None:

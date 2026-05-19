@@ -52,8 +52,24 @@ def _preset_for(lang: str) -> dict:
     return preset
 
 
+def _normalize_rate(rate: str) -> str:
+    """edge-tts requires a signed prefix on rate ('+0%', '-5%'). Coerce '0%' -> '+0%'."""
+    rate = (rate or "+0%").strip()
+    if rate and rate[0] not in "+-":
+        rate = "+" + rate
+    return rate
+
+
+def _normalize_pitch(pitch: str) -> str:
+    """edge-tts requires a signed prefix on pitch ('+0Hz', '-3Hz'). Coerce '0Hz' -> '+0Hz'."""
+    pitch = (pitch or "+0Hz").strip()
+    if pitch and pitch[0] not in "+-":
+        pitch = "+" + pitch
+    return pitch
+
+
 async def _synthesize(text: str, voice: str, rate: str, pitch: str, out_path: Path) -> None:
-    comm = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
+    comm = edge_tts.Communicate(text, voice, rate=_normalize_rate(rate), pitch=_normalize_pitch(pitch))
     await comm.save(str(out_path))
 
 

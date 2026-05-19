@@ -23,7 +23,10 @@ from .tools import clipboard as t_clipboard
 from .tools import translate as t_translate
 from .tools import file_search as t_file_search
 from .tools import calendar_gcal as t_calendar
+from .tools import recall_similar as t_recall
 from .plugins_loader import load_plugins, reserved_names_check
+from .personality import get_guidance as _personality_guidance
+from . import settings as _settings
 
 SYSTEM_PROMPT = """You are Jarvis, a personal voice assistant for the user on their Windows PC.
 
@@ -38,12 +41,21 @@ Rules:
   said a confirmation word like "yes", "do it", "go", "okay", or "seri" (Tamil).
 - For sending messages (WhatsApp/email) ALWAYS read back the recipient + body, then wait
   for confirmation before actually sending.
-- Use the `remember` tool to save useful facts the user shares (name, preferences, important
-  numbers, recurring tasks). Use `recall` when relevant.
+
+LEARN ABOUT THE USER — IMPORTANT:
+- Proactively call the `remember` tool whenever the user shares a fact about themselves:
+  name, age, birthday, family members' names/phones, work, location, preferences (foods,
+  music, shows), habits, schedules, goals, allergies, or any recurring identifier.
+- Use short kebab-case keys (e.g., "user-name", "amma-phone", "morning-routine").
+- When the user asks something that might be in past conversations, call `recall_similar` first.
+- Use `recall` to look up specific saved facts when relevant.
+
+Personality / tone:
+{personality}
 
 Current local time: {now}
 
-What you remember about the user:
+What you already remember about the user:
 {memory}
 """
 
@@ -67,6 +79,17 @@ def _int(value, default: int) -> int:
         return int(value) if value is not None and value != "" else default
     except (TypeError, ValueError):
         return default
+
+
+def _set_personality(personality_id: str) -> str:
+    """Switch Jarvis's tone for future replies — persists across sessions."""
+    from .personality import PERSONALITY_PRESETS
+    pid = (personality_id or "").lower().strip()
+    if pid not in PERSONALITY_PRESETS:
+        return (f"Unknown personality '{personality_id}'. Choose from: "
+                f"{', '.join(PERSONALITY_PRESETS.keys())}")
+    _settings.save({"personality": pid})
+    return f"Personality switched to '{pid}'. New tone applies to the next reply."
 
 
 TOOLS: list[dict] = [
@@ -166,6 +189,18 @@ TOOLS: list[dict] = [
           "'what's my day', or asks for a summary.",
           {}),
 
+    # --- semantic recall + personality ---
+    _tool("recall_similar",
+          "Search the user's past conversations, notes, and saved memories for anything "
+          "relevant to a query. Use when the user references something that might be in "
+          "history ('what did I say about X?', 'I told you something about...').",
+          {"query": {"type": "string"}, "k": {"type": "integer"}}, ["query"]),
+    _tool("set_personality",
+          "Change Jarvis's tone of voice. personality_id is one of: "
+          "jarvis | casual | concise | witty | professional. "
+          "Use when the user says 'be more X' or 'switch to Y mode'.",
+          {"personality_id": {"type": "string"}}, ["personality_id"]),
+
     # --- notes ---
     _tool("add_note",
           "Save a quick note to the user's notes file. Use when the user says "
@@ -255,6 +290,8 @@ TOOL_HANDLERS: dict[str, Any] = {
     "search_emails": lambda i: t_gmail.search_emails(i["query"], _int(i.get("max_results"), 5)),
     "send_email": lambda i: t_gmail.send_email(i["to"], i["subject"], i["body"]),
     "daily_briefing": lambda i: t_briefing.daily_briefing(),
+    "recall_similar": lambda i: t_recall.recall_similar(i["query"], _int(i.get("k"), 5)),
+    "set_personality": lambda i: _set_personality(i["personality_id"]),
     "add_note": lambda i: t_notes.add_note(i["text"], i.get("tag", "")),
     "list_notes": lambda i: t_notes.list_notes(_int(i.get("max_results"), 10), i.get("query", "")),
     "read_clipboard": lambda i: t_clipboard.read_clipboard(),
@@ -308,9 +345,11 @@ class Brain:
 
     def _system(self) -> str:
         mem = t_memory.memory_summary_for_prompt() or "(nothing yet)"
+        personality_id = _settings.get("personality", "jarvis")
         return SYSTEM_PROMPT.format(
             now=_dt.datetime.now().strftime("%A %d %B %Y, %I:%M %p"),
             memory=mem,
+            personality=_personality_guidance(personality_id),
         )
 
     def _exec_tool(self, name: str, args: dict, lang: str) -> str:

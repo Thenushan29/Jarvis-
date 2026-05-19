@@ -12,6 +12,7 @@ data/memory.json
 data/conversation.log
 data/notes.md
 data/usage.json
+data/prenotified.json
 jarvis_backup*.zip
 
 # ===== PYTHON =====

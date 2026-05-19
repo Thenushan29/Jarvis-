@@ -87,6 +87,12 @@ class JarvisWorker(QObject):
             scheduler = ReminderScheduler(on_fire=lambda r: self._on_reminder(r, speak, conv_log))
             scheduler.start()
 
+            from jarvis.proactive import ProactiveScheduler
+            proactive = ProactiveScheduler(
+                on_prenotify=lambda r, mins: self._on_prenotify(r, mins, speak, conv_log)
+            )
+            proactive.start()
+
             try:
                 if self._mode == "wake":
                     self._run_wake_mode(brain, speak, listen, record_until_silence,
@@ -98,11 +104,34 @@ class JarvisWorker(QObject):
                     self.error.emit(f"Unknown mode '{self._mode}'")
             finally:
                 scheduler.stop()
+                try:
+                    proactive.stop()
+                except Exception:
+                    pass
                 self._emit_status("idle")
         except Exception as e:
             traceback.print_exc()
             self.error.emit(f"{type(e).__name__}: {e}")
             self._emit_status("error")
+
+    def _on_prenotify(self, reminder: dict, minutes: int, speak, conv_log) -> None:
+        """Heads-up before a reminder fires."""
+        text = reminder["text"]
+        lang = reminder.get("lang", "en")
+        msg_voice = (f"{minutes} நிமிட நினைவூட்டல்: {text}"
+                     if lang.startswith("ta")
+                     else f"Heads up — in {minutes} minute{'s' if minutes != 1 else ''}: {text}")
+        self._emit_log("system", f"[heads-up in {minutes} min] {text}")
+        conv_log("system", f"heads-up in {minutes}m: {text}", lang)
+        try:
+            from ..notify import toast
+            toast("Jarvis — upcoming", f"In {minutes} min: {text}", timeout=8)
+        except Exception:
+            pass
+        try:
+            speak(msg_voice, lang)
+        except Exception as e:
+            print(f"[prenotify] speak failed: {e}")
 
     def _on_reminder(self, reminder: dict, speak, conv_log) -> None:
         text = reminder["text"]

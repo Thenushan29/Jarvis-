@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 
 from ..settings import load as load_settings, save as save_settings, PROVIDER_INFO, get_models_for
 from ..voice.presets import ENGLISH_PRESETS, TAMIL_PRESETS, find_preset
+from ..personality import PERSONALITY_PRESETS
 
 
 class _TestWorker(QThread):
@@ -226,6 +227,21 @@ class SettingsDialog(QDialog):
         sys_layout.addRow("Hotkey:", self.ptt_edit)
 
         layout.addWidget(sys_group)
+
+        # Personality + proactive
+        pers_group = QGroupBox("Personality + proactive heads-ups")
+        pform = QFormLayout(pers_group)
+        self.personality_combo = QComboBox()
+        for pid, info in PERSONALITY_PRESETS.items():
+            self.personality_combo.addItem(info["label"], userData=pid)
+        cur_pers = s.get("personality", "jarvis")
+        for i in range(self.personality_combo.count()):
+            if self.personality_combo.itemData(i) == cur_pers:
+                self.personality_combo.setCurrentIndex(i); break
+        pform.addRow("Personality:", self.personality_combo)
+        self.proactive_edit = QLineEdit(str(s.get("proactive_lead_minutes", 10)))
+        pform.addRow("Heads-up minutes before event:", self.proactive_edit)
+        layout.addWidget(pers_group)
 
         # Voice loop timing
         timing_group = QGroupBox("Voice loop timing")
@@ -449,6 +465,8 @@ class SettingsDialog(QDialog):
             "auto_start_on_boot": self.autostart_check.isChecked(),
             "ptt_enabled": self.ptt_check.isChecked(),
             "ptt_hotkey": self.ptt_edit.text().strip() or "ctrl+alt+j",
+            "personality": self.personality_combo.currentData() or "jarvis",
+            "proactive_lead_minutes": self._safe_int(self.proactive_edit.text(), 10),
         })
         # Apply auto-start immediately so user sees it work.
         try:

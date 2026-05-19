@@ -102,6 +102,92 @@ PROVIDER_INFO = [
 ]
 
 
+# Curated model catalog per provider — shown in the Settings dialog dropdown.
+# Each entry: (model_id, friendly_label)
+# The user can still type a custom model name in the editable combo box.
+MODEL_CATALOG: dict[str, list[tuple[str, str]]] = {
+    "groq": [
+        ("llama-3.3-70b-versatile",                          "Llama 3.3 70B  —  smart, balanced (default)"),
+        ("llama-3.1-8b-instant",                             "Llama 3.1 8B   —  fastest, less smart"),
+        ("meta-llama/llama-4-scout-17b-16e-instruct",        "Llama 4 Scout  —  multimodal (vision)"),
+        ("meta-llama/llama-4-maverick-17b-128e-instruct",    "Llama 4 Maverick — biggest"),
+        ("mixtral-8x7b-32768",                               "Mixtral 8x7B   —  long context"),
+        ("gemma2-9b-it",                                     "Gemma 2 9B"),
+    ],
+    "openai": [
+        ("gpt-4o-mini",         "GPT-4o mini   —  cheap, fast (default)"),
+        ("gpt-4o",              "GPT-4o        —  flagship, multimodal"),
+        ("gpt-4-turbo",         "GPT-4 Turbo"),
+        ("gpt-4.1",             "GPT-4.1"),
+        ("gpt-5",               "GPT-5         —  newest"),
+        ("o3-mini",             "o3-mini       —  reasoning"),
+        ("o1-mini",             "o1-mini       —  reasoning"),
+    ],
+    "anthropic": [
+        ("claude-haiku-4-5",    "Claude Haiku 4.5   —  fastest, cheap"),
+        ("claude-sonnet-4-6",   "Claude Sonnet 4.6  —  balanced (default)"),
+        ("claude-opus-4-7",     "Claude Opus 4.7    —  smartest"),
+    ],
+    "gemini": [
+        ("gemini-2.5-flash",    "Gemini 2.5 Flash  —  fast, free (default)"),
+        ("gemini-2.5-pro",      "Gemini 2.5 Pro    —  smartest"),
+        ("gemini-2.0-flash",    "Gemini 2.0 Flash"),
+        ("gemini-1.5-flash",    "Gemini 1.5 Flash"),
+        ("gemini-1.5-pro",      "Gemini 1.5 Pro"),
+    ],
+    "openrouter": [
+        ("anthropic/claude-sonnet-4",                        "Claude Sonnet 4  (via OpenRouter)"),
+        ("anthropic/claude-opus-4",                          "Claude Opus 4"),
+        ("openai/gpt-4o",                                    "GPT-4o"),
+        ("openai/gpt-4o-mini",                               "GPT-4o mini"),
+        ("google/gemini-2.5-pro",                            "Gemini 2.5 Pro"),
+        ("meta-llama/llama-3.3-70b-instruct",                "Llama 3.3 70B"),
+        ("meta-llama/llama-4-scout",                         "Llama 4 Scout"),
+        ("mistralai/mistral-large",                          "Mistral Large"),
+        ("deepseek/deepseek-r1",                             "DeepSeek R1 — reasoning"),
+    ],
+    "ollama": [
+        ("llama3.3",            "Llama 3.3 (must be pulled: `ollama pull llama3.3`)"),
+        ("llama3.1",            "Llama 3.1"),
+        ("qwen2.5",             "Qwen 2.5"),
+        ("mistral",             "Mistral 7B"),
+        ("gemma2",              "Gemma 2"),
+        ("phi3",                "Phi 3"),
+        ("llava",               "LLaVA — vision"),
+    ],
+    "together": [
+        ("meta-llama/Llama-3.3-70B-Instruct-Turbo",          "Llama 3.3 70B Turbo (default)"),
+        ("Qwen/Qwen2.5-72B-Instruct-Turbo",                  "Qwen 2.5 72B Turbo"),
+        ("mistralai/Mixtral-8x7B-Instruct-v0.1",             "Mixtral 8x7B"),
+        ("meta-llama/Llama-Vision-Free",                     "Llama Vision (free)"),
+    ],
+    "openai_compat": [],   # generic — user types their own model
+}
+
+
+def get_models_for(provider: str) -> list[tuple[str, str]]:
+    """Return curated models for a provider. For ollama, also try to fetch installed models."""
+    base = list(MODEL_CATALOG.get(provider, []))
+    if provider == "ollama":
+        installed = _list_ollama_models()
+        if installed:
+            # Replace catalog with installed list — only show what they actually have.
+            base = [(m, f"{m}  (installed)") for m in installed]
+    return base
+
+
+def _list_ollama_models() -> list[str]:
+    """Best-effort: query a local Ollama daemon for installed models. Returns [] on failure."""
+    try:
+        import json as _json
+        from urllib.request import urlopen
+        with urlopen("http://localhost:11434/api/tags", timeout=1.5) as r:
+            data = _json.loads(r.read().decode("utf-8"))
+        return [m.get("name") for m in data.get("models", []) if m.get("name")]
+    except Exception:
+        return []
+
+
 def apply_to_environ() -> None:
     """Copy settings into os.environ so the existing config.py picks them up.
 

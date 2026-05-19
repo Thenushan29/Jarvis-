@@ -1,5 +1,6 @@
 """First-run wizard — friendly welcome → settings → save → optional greeting."""
 from __future__ import annotations
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QMessageBox
 
 from ..settings import load as load_settings
@@ -35,7 +36,7 @@ def run_first_run_wizard(parent=None) -> bool:
     """Returns True if user finished setup (saved settings), False if cancelled."""
     msg = QMessageBox(parent)
     msg.setWindowTitle("Welcome to Jarvis")
-    msg.setTextFormat(1)   # Qt.RichText
+    msg.setTextFormat(Qt.TextFormat.RichText)
     msg.setText(WELCOME)
     msg.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
     msg.setDefaultButton(QMessageBox.Ok)

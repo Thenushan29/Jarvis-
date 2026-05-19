@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QGroupBox, QTabWidget, QWidget,
 )
 
-from ..settings import load as load_settings, save as save_settings, PROVIDER_INFO
+from ..settings import load as load_settings, save as save_settings, PROVIDER_INFO, get_models_for
 from ..voice.presets import ENGLISH_PRESETS, TAMIL_PRESETS, find_preset
 
 
@@ -101,9 +101,12 @@ class SettingsDialog(QDialog):
         self.key_link.setTextFormat(Qt.RichText)
         form.addRow("", self.key_link)
 
-        self.model_edit = QLineEdit(s.get("llm_model", ""))
-        self.model_edit.setPlaceholderText("(leave blank to use provider default)")
-        form.addRow("Model:", self.model_edit)
+        # Model combo — editable so user can type a custom name too.
+        self.model_combo = QComboBox()
+        self.model_combo.setEditable(True)
+        self.model_combo.setInsertPolicy(QComboBox.NoInsert)
+        self.model_combo.setMinimumContentsLength(40)
+        form.addRow("Model:", self.model_combo)
 
         self.url_edit = QLineEdit(s.get("llm_base_url", ""))
         self.url_edit.setPlaceholderText("(leave blank for provider default)")
@@ -124,6 +127,9 @@ class SettingsDialog(QDialog):
 
         self.provider_combo.currentIndexChanged.connect(self._on_provider_changed)
         self.test_btn.clicked.connect(self._on_test)
+
+        # Initialize model dropdown for the currently selected provider
+        self._refresh_model_combo(initial_model=s.get("llm_model", ""))
 
         return page
 
@@ -280,6 +286,47 @@ class SettingsDialog(QDialog):
             self.key_edit.setPlaceholderText(f"Paste your API key here (starts with {prefix})")
         else:
             self.key_edit.setPlaceholderText("Paste your API key here")
+        # Reset model list to match the new provider.
+        self._refresh_model_combo(initial_model="")
+
+    def _refresh_model_combo(self, initial_model: str = "") -> None:
+        """Populate the model dropdown for the currently selected provider."""
+        provider = self.provider_combo.currentData() or ""
+        self.model_combo.blockSignals(True)
+        self.model_combo.clear()
+        # First entry: provider default (blank model_id, friendly label).
+        self.model_combo.addItem("◆  Provider default", userData="")
+        for model_id, label in get_models_for(provider):
+            self.model_combo.addItem(label, userData=model_id)
+        # Pick the saved model if present, else fall back to provider default.
+        chosen_index = 0
+        if initial_model:
+            for i in range(self.model_combo.count()):
+                if self.model_combo.itemData(i) == initial_model:
+                    chosen_index = i
+                    break
+            else:
+                # Not in catalog — show it as the editable text so user keeps their custom choice.
+                self.model_combo.setEditText(initial_model)
+                self.model_combo.blockSignals(False)
+                return
+        self.model_combo.setCurrentIndex(chosen_index)
+        # When index = 0 (provider default), keep edit text empty.
+        if chosen_index == 0:
+            self.model_combo.setEditText("")
+        self.model_combo.blockSignals(False)
+
+    def _current_model(self) -> str:
+        """Return the model id from the combo — either dropdown selection or typed text."""
+        idx = self.model_combo.currentIndex()
+        data = self.model_combo.itemData(idx) if idx >= 0 else None
+        typed = self.model_combo.currentText().strip()
+        # If user picked a real catalog item, prefer its model_id.
+        if data:
+            # If they typed something different from the label, treat as custom.
+            return data if typed == self.model_combo.itemText(idx) else typed
+        # Default-item or custom typed.
+        return typed
 
     def _on_test(self):
         if self._test_thread and self._test_thread.isRunning():
@@ -291,7 +338,7 @@ class SettingsDialog(QDialog):
         self._test_thread = _TestWorker(
             provider=info["id"],
             api_key=self.key_edit.text().strip(),
-            model=self.model_edit.text().strip(),
+            model=self._current_model(),
             base_url=self.url_edit.text().strip(),
         )
         self._test_thread.finished_with.connect(self._on_test_done)
@@ -317,7 +364,7 @@ class SettingsDialog(QDialog):
         save_settings({
             "llm_provider": info["id"],
             "llm_api_key": self.key_edit.text().strip(),
-            "llm_model": self.model_edit.text().strip(),
+            "llm_model": self._current_model(),
             "llm_base_url": self.url_edit.text().strip(),
             "tts_voice_english": self.en_voice_combo.currentData(),
             "tts_voice_tamil": self.ta_voice_combo.currentData(),

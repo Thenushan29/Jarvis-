@@ -48,10 +48,24 @@ What you remember about the user:
 
 
 def _tool(name: str, description: str, properties: dict, required: list | None = None) -> dict:
-    params: dict = {"type": "object", "properties": properties}
+    # Strip 'default' from property declarations — Python handlers already use
+    # .get(key, default), and including JSON-Schema 'default' makes some models
+    # (notably Llama via Groq) wrap integer args as strings (e.g. "25" instead of 25),
+    # which Groq's strict schema validator then rejects.
+    cleaned_props = {k: {kk: vv for kk, vv in v.items() if kk != "default"}
+                     for k, v in properties.items()}
+    params: dict = {"type": "object", "properties": cleaned_props}
     if required:
         params["required"] = required
     return {"name": name, "description": description, "parameters": params}
+
+
+def _int(value, default: int) -> int:
+    """Coerce tool arguments to int (defensive against models that send '25' instead of 25)."""
+    try:
+        return int(value) if value is not None and value != "" else default
+    except (TypeError, ValueError):
+        return default
 
 
 TOOLS: list[dict] = [
@@ -208,12 +222,12 @@ TOOL_HANDLERS: dict[str, Any] = {
     ),
     "list_reminders": lambda i: t_reminders.list_reminders(),
     "delete_reminder": lambda i: t_reminders.delete_reminder(i["reminder_id"]),
-    "volume_up": lambda i: t_system.volume_up(i.get("steps", 5)),
-    "volume_down": lambda i: t_system.volume_down(i.get("steps", 5)),
+    "volume_up": lambda i: t_system.volume_up(_int(i.get("steps"), 5)),
+    "volume_down": lambda i: t_system.volume_down(_int(i.get("steps"), 5)),
     "mute_toggle": lambda i: t_system.mute_toggle(),
     "lock_pc": lambda i: t_system.lock_pc(),
     "sleep_pc": lambda i: t_system.sleep_pc(),
-    "shutdown_pc": lambda i: t_system.shutdown_pc(i.get("seconds", 30)),
+    "shutdown_pc": lambda i: t_system.shutdown_pc(_int(i.get("seconds"), 30)),
     "cancel_shutdown": lambda i: t_system.cancel_shutdown(),
     "screenshot": lambda i: t_system.screenshot(),
     "current_time": lambda i: t_system.current_time(),
@@ -228,31 +242,31 @@ TOOL_HANDLERS: dict[str, Any] = {
     "write_file": lambda i: t_code.write_file(i["path"], i["content"]),
     "append_file": lambda i: t_code.append_file(i["path"], i["content"]),
     "list_dir": lambda i: t_code.list_dir(i.get("path", ".")),
-    "run_shell": lambda i: t_code.run_shell(i["command"], i.get("timeout", 30)),
+    "run_shell": lambda i: t_code.run_shell(i["command"], _int(i.get("timeout"), 30)),
     "winget_search": lambda i: t_winget.winget_search(i["query"]),
     "winget_install": lambda i: t_winget.winget_install(i["package_id"]),
     "winget_uninstall": lambda i: t_winget.winget_uninstall(i["package_id"]),
     "describe_screen": lambda i: t_vision.describe_screen(i.get("question", "")),
     "send_whatsapp": lambda i: t_whatsapp.send_whatsapp(i["recipient"], i["message"]),
-    "list_whatsapp_chats": lambda i: t_whatsapp.list_recent_chats(i.get("count", 10)),
-    "read_whatsapp_chat": lambda i: t_whatsapp.read_chat(i["name"], i.get("count", 10)),
-    "list_inbox": lambda i: t_gmail.list_inbox(i.get("max_results", 5)),
-    "search_emails": lambda i: t_gmail.search_emails(i["query"], i.get("max_results", 5)),
+    "list_whatsapp_chats": lambda i: t_whatsapp.list_recent_chats(_int(i.get("count"), 10)),
+    "read_whatsapp_chat": lambda i: t_whatsapp.read_chat(i["name"], _int(i.get("count"), 10)),
+    "list_inbox": lambda i: t_gmail.list_inbox(_int(i.get("max_results"), 5)),
+    "search_emails": lambda i: t_gmail.search_emails(i["query"], _int(i.get("max_results"), 5)),
     "send_email": lambda i: t_gmail.send_email(i["to"], i["subject"], i["body"]),
     "daily_briefing": lambda i: t_briefing.daily_briefing(),
     "add_note": lambda i: t_notes.add_note(i["text"], i.get("tag", "")),
-    "list_notes": lambda i: t_notes.list_notes(i.get("max_results", 10), i.get("query", "")),
+    "list_notes": lambda i: t_notes.list_notes(_int(i.get("max_results"), 10), i.get("query", "")),
     "read_clipboard": lambda i: t_clipboard.read_clipboard(),
     "write_clipboard": lambda i: t_clipboard.write_clipboard(i["text"]),
     "append_clipboard": lambda i: t_clipboard.append_clipboard(i["text"]),
     "translate": lambda i: t_translate.translate(i["text"], i.get("target_language", "english")),
     "find_files": lambda i: t_file_search.find_files(
-        i.get("name_pattern", ""), i.get("content_query", ""), i.get("max_results", 25)
+        i.get("name_pattern", ""), i.get("content_query", ""), _int(i.get("max_results"), 25)
     ),
     "list_today_events": lambda i: t_calendar.list_today_events(),
     "list_week_events": lambda i: t_calendar.list_week_events(),
     "add_calendar_event": lambda i: t_calendar.add_event(
-        i["summary"], i["start_time"], i.get("duration_minutes", 60),
+        i["summary"], i["start_time"], _int(i.get("duration_minutes"), 60),
         i.get("description", ""), i.get("location", "")
     ),
 }

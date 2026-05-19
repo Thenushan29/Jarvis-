@@ -97,6 +97,17 @@ def _parse_due(when: str) -> _dt.datetime | None:
             except ValueError:
                 pass
 
+    # Bare time like "11am", "11:00 AM", "17:30" — pick today if future, else tomorrow.
+    for fmt in ("%I%p", "%I %p", "%I:%M%p", "%I:%M %p", "%H:%M"):
+        try:
+            t = _dt.datetime.strptime(when.upper(), fmt).time()
+            candidate = _dt.datetime.combine(now.date(), t)
+            if candidate <= now:
+                candidate += _dt.timedelta(days=1)
+            return candidate
+        except ValueError:
+            pass
+
     return None
 
 

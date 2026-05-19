@@ -24,6 +24,7 @@ class JarvisWorker(QObject):
     status_changed = Signal(str)
     message_logged = Signal(str, str)
     error = Signal(str)
+    level_changed = Signal(float)        # 0.0 - 1.0 mic level, ~30/s while listening
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -215,6 +216,11 @@ class JarvisWorker(QObject):
 
         def cb(indata, frames, time_info, status):
             rms = float(np.sqrt(np.mean(indata ** 2)))
+            # Drive the waveform widget — clip + soft-scale for visual range.
+            try:
+                self.level_changed.emit(min(1.0, rms * 12))
+            except Exception:
+                pass
             if rms > 0.025:
                 detected["v"] = True
 
@@ -224,4 +230,9 @@ class JarvisWorker(QObject):
                     sd.sleep(80)
         except Exception:
             return False
+        finally:
+            try:
+                self.level_changed.emit(0.0)
+            except Exception:
+                pass
         return detected["v"]

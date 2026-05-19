@@ -10,6 +10,7 @@ from PySide6.QtGui import QFont, QColor, QTextCharFormat, QTextCursor
 from .worker import JarvisWorker
 from .settings_dialog import SettingsDialog
 from .conversation_viewer import ConversationViewer
+from .waveform import LiveWaveform
 from ..settings import load as load_settings, save as save_settings
 from ..hotkey import GlobalHotkey
 from .. import autostart
@@ -46,6 +47,7 @@ class MainWindow(QMainWindow):
         self.worker.status_changed.connect(self._on_status)
         self.worker.message_logged.connect(self._on_log)
         self.worker.error.connect(self._on_error)
+        self.worker.level_changed.connect(self._on_level)
 
         central = QWidget()
         layout = QVBoxLayout(central)
@@ -79,6 +81,10 @@ class MainWindow(QMainWindow):
         status_row.addWidget(self.stop_btn)
         status_row.addWidget(self.settings_btn)
         layout.addLayout(status_row)
+
+        # Live mic level visualizer
+        self.waveform = LiveWaveform()
+        layout.addWidget(self.waveform)
 
         # Conversation log
         self.log_view = QTextEdit()
@@ -167,6 +173,11 @@ class MainWindow(QMainWindow):
         self.status_text.setText(STATUS_LABEL.get(s, s.capitalize()))
         color = STATUS_COLOR.get(s, "#888")
         self.status_dot.setStyleSheet(f"color: {color}; font-size: 22px;")
+        # Light up the waveform only while actively listening.
+        self.waveform.set_enabled_view(s == "listening")
+
+    def _on_level(self, level: float):
+        self.waveform.set_level(level)
 
     def _on_log(self, role: str, text: str):
         self._append(role, text)

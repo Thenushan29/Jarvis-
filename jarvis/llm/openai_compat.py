@@ -41,14 +41,18 @@ class OpenAICompatClient(LLMClient):
             for t in tools
         ]
         messages = [{"role": "system", "content": system}] + history
-        resp = self.client.chat.completions.create(
+        kwargs = dict(
             model=self.model,
             messages=messages,
-            tools=oa_tools or None,
-            tool_choice="auto" if oa_tools else None,
             max_tokens=self.max_tokens,
             temperature=0.6,
         )
+        # Only send tools/tool_choice when we actually have tools — Groq rejects
+        # tool_choice=null even when tools is empty.
+        if oa_tools:
+            kwargs["tools"] = oa_tools
+            kwargs["tool_choice"] = "auto"
+        resp = self.client.chat.completions.create(**kwargs)
         msg = resp.choices[0].message
         tool_calls: list[ToolCall] = []
         for tc in (msg.tool_calls or []):

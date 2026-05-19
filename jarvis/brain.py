@@ -18,6 +18,11 @@ from .tools import vision as t_vision
 from .tools import whatsapp as t_whatsapp
 from .tools import gmail as t_gmail
 from .tools import briefing as t_briefing
+from .tools import notes as t_notes
+from .tools import clipboard as t_clipboard
+from .tools import translate as t_translate
+from .tools import file_search as t_file_search
+from .tools import calendar_gcal as t_calendar
 
 SYSTEM_PROMPT = """You are Jarvis, a personal voice assistant for the user on their Windows PC.
 
@@ -145,6 +150,52 @@ TOOLS: list[dict] = [
           "and unread emails. Use when the user says 'good morning', 'brief me', "
           "'what's my day', or asks for a summary.",
           {}),
+
+    # --- notes ---
+    _tool("add_note",
+          "Save a quick note to the user's notes file. Use when the user says "
+          "'take a note', 'remember this', or wants to jot down something they don't "
+          "need a reminder for. 'tag' is an optional category like 'idea' or 'todo'.",
+          {"text": {"type": "string"}, "tag": {"type": "string", "default": ""}}, ["text"]),
+    _tool("list_notes", "List recent notes, optionally filtered by a query.",
+          {"max_results": {"type": "integer", "default": 10},
+           "query": {"type": "string", "default": ""}}),
+
+    # --- clipboard ---
+    _tool("read_clipboard", "Read the current Windows clipboard contents.", {}),
+    _tool("write_clipboard", "Replace clipboard contents with the given text.",
+          {"text": {"type": "string"}}, ["text"]),
+    _tool("append_clipboard", "Append text to the current clipboard contents.",
+          {"text": {"type": "string"}}, ["text"]),
+
+    # --- translation ---
+    _tool("translate",
+          "Translate text into a target language (e.g. 'tamil', 'english', 'hindi'). "
+          "Use when user explicitly asks to translate something.",
+          {"text": {"type": "string"},
+           "target_language": {"type": "string", "default": "english"}}, ["text"]),
+
+    # --- file search ---
+    _tool("find_files",
+          "Search the user's Desktop / Documents / Downloads for files by name "
+          "(substring or glob like '*.pdf') and optionally by content. Use when "
+          "user says 'find my resume', 'where is the X file', etc.",
+          {"name_pattern": {"type": "string", "default": ""},
+           "content_query": {"type": "string", "default": ""},
+           "max_results": {"type": "integer", "default": 25}}),
+
+    # --- google calendar ---
+    _tool("list_today_events", "List today's events from the user's primary Google Calendar.", {}),
+    _tool("list_week_events", "List events for the next 7 days from Google Calendar.", {}),
+    _tool("add_calendar_event",
+          "Add an event to the user's Google Calendar. start_time accepts "
+          "'YYYY-MM-DD HH:MM'. duration_minutes defaults to 60. Confirm with user before adding.",
+          {"summary": {"type": "string"},
+           "start_time": {"type": "string"},
+           "duration_minutes": {"type": "integer", "default": 60},
+           "description": {"type": "string", "default": ""},
+           "location": {"type": "string", "default": ""}},
+          ["summary", "start_time"]),
 ]
 
 TOOL_HANDLERS: dict[str, Any] = {
@@ -189,6 +240,21 @@ TOOL_HANDLERS: dict[str, Any] = {
     "search_emails": lambda i: t_gmail.search_emails(i["query"], i.get("max_results", 5)),
     "send_email": lambda i: t_gmail.send_email(i["to"], i["subject"], i["body"]),
     "daily_briefing": lambda i: t_briefing.daily_briefing(),
+    "add_note": lambda i: t_notes.add_note(i["text"], i.get("tag", "")),
+    "list_notes": lambda i: t_notes.list_notes(i.get("max_results", 10), i.get("query", "")),
+    "read_clipboard": lambda i: t_clipboard.read_clipboard(),
+    "write_clipboard": lambda i: t_clipboard.write_clipboard(i["text"]),
+    "append_clipboard": lambda i: t_clipboard.append_clipboard(i["text"]),
+    "translate": lambda i: t_translate.translate(i["text"], i.get("target_language", "english")),
+    "find_files": lambda i: t_file_search.find_files(
+        i.get("name_pattern", ""), i.get("content_query", ""), i.get("max_results", 25)
+    ),
+    "list_today_events": lambda i: t_calendar.list_today_events(),
+    "list_week_events": lambda i: t_calendar.list_week_events(),
+    "add_calendar_event": lambda i: t_calendar.add_event(
+        i["summary"], i["start_time"], i.get("duration_minutes", 60),
+        i.get("description", ""), i.get("location", "")
+    ),
 }
 
 

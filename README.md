@@ -1,7 +1,12 @@
 # Jarvis — Bilingual Voice Assistant (Tamil + English)
 
-A personal AI voice agent for Windows. Wake word, speech-to-text, Groq brain
-with tool calling, text-to-speech. Speaks Tamil and English (auto-detected per turn).
+A personal AI voice agent for Windows. Wake word, speech-to-text, configurable LLM brain
+with tool calling, text-to-speech. **Bring your own API key** — works with Groq, OpenAI, Claude,
+Gemini, OpenRouter, Together, local Ollama, or any OpenAI-compatible endpoint.
+
+**Two ways to run:**
+- **GUI desktop app** — system tray icon, settings dialog, status window: `python jarvis_app.py`
+- **CLI** — `python run.py text | voice | wake`
 
 ---
 
@@ -54,8 +59,14 @@ Replace `your_groq_api_key_here` with your actual key. Save, close.
 
 ### 6. Run him
 
-You have **three modes** — start with `text` to confirm everything works:
+**Option A — Desktop GUI (recommended):**
+```powershell
+python jarvis_app.py
+```
+First run shows a setup wizard → pick provider, paste your key, test, save. Then main window
+opens with status, start/stop, settings, and a tray icon.
 
+**Option B — CLI (three modes):**
 ```powershell
 python run.py text   # type commands, no mic needed (best first test)
 python run.py voice  # press ENTER, then speak
@@ -70,7 +81,12 @@ Remember my favorite food is dosa
 quit
 ```
 
-If those work, you're set. Try `voice` mode next, then `wake`.
+### Build a single .exe (optional)
+
+```powershell
+.\build_exe.ps1
+```
+Outputs `dist\Jarvis\Jarvis.exe` — ship the folder to anyone, no Python needed on their side.
 
 ---
 

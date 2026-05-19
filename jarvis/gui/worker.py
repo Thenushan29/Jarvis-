@@ -1,0 +1,221 @@
+"""Background worker thread that runs the voice loop without freezing the UI.
+
+The worker emits Qt signals as Jarvis's status changes; the GUI displays them.
+"""
+from __future__ import annotations
+import traceback
+import time
+import threading
+
+import numpy as np
+import sounddevice as sd
+from PySide6.QtCore import QObject, Signal
+
+
+class JarvisWorker(QObject):
+    """Wraps the voice loop in a worker thread.
+
+    Signals:
+        status_changed(str)        -- 'idle' / 'listening' / 'thinking' / 'speaking' / 'error'
+        message_logged(str, str)   -- role, text   (role in: 'you', 'jarvis', 'reminder', 'system')
+        error(str)
+    """
+
+    status_changed = Signal(str)
+    message_logged = Signal(str, str)
+    error = Signal(str)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._mode: str = "wake"
+
+    # ------- public control -------
+    def start(self, mode: str = "wake") -> None:
+        if self._thread and self._thread.is_alive():
+            return
+        self._mode = mode
+        self._stop.clear()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
+        # Best-effort: the wake-word listener is blocking on mic reads, so we just
+        # mark stop and let the worker exit between iterations.
+
+    def is_running(self) -> bool:
+        return bool(self._thread and self._thread.is_alive())
+
+    # ------- internals -------
+    def _emit_status(self, s: str) -> None:
+        try:
+            self.status_changed.emit(s)
+        except Exception:
+            pass
+
+    def _emit_log(self, role: str, text: str) -> None:
+        try:
+            self.message_logged.emit(role, text)
+        except Exception:
+            pass
+
+    def _run(self) -> None:
+        try:
+            self._emit_status("starting")
+            # Local imports so Qt thread doesn't pull heavy modules until started.
+            from jarvis.config import assert_keys, FOLLOWUP_SECONDS
+            from jarvis.voice.listen import (
+                listen, record_until_silence, transcribe, SAMPLE_RATE, calibrate_silence,
+            )
+            from jarvis.voice.speak import speak
+            from jarvis.brain import Brain
+            from jarvis.tools.reminders import ReminderScheduler
+            from jarvis.conversation_log import log as conv_log
+
+            try:
+                assert_keys()
+            except RuntimeError as e:
+                self.error.emit(str(e))
+                self._emit_status("error")
+                return
+
+            self._emit_log("system", "Loading models...")
+            brain = Brain()
+            scheduler = ReminderScheduler(on_fire=lambda r: self._on_reminder(r, speak, conv_log))
+            scheduler.start()
+
+            try:
+                if self._mode == "wake":
+                    self._run_wake_mode(brain, speak, listen, record_until_silence,
+                                        transcribe, calibrate_silence, conv_log, FOLLOWUP_SECONDS)
+                elif self._mode == "voice":
+                    self._run_voice_mode(brain, speak, record_until_silence,
+                                         transcribe, calibrate_silence, conv_log)
+                else:
+                    self.error.emit(f"Unknown mode '{self._mode}'")
+            finally:
+                scheduler.stop()
+                self._emit_status("idle")
+        except Exception as e:
+            traceback.print_exc()
+            self.error.emit(f"{type(e).__name__}: {e}")
+            self._emit_status("error")
+
+    def _on_reminder(self, reminder: dict, speak, conv_log) -> None:
+        text = reminder["text"]
+        lang = reminder.get("lang", "en")
+        prefix = "நினைவூட்டல்: " if lang.startswith("ta") else "Reminder: "
+        self._emit_log("reminder", text)
+        conv_log("reminder", text, lang)
+        try:
+            speak(prefix + text, lang)
+        except Exception as e:
+            print(f"[reminder] speak failed: {e}")
+
+    def _process_turn(self, brain, text, lang, speak, conv_log) -> None:
+        self._emit_log("you", text)
+        conv_log("user", text, lang)
+        self._emit_status("thinking")
+        try:
+            reply = brain.think(text, lang=lang)
+        except Exception as e:
+            traceback.print_exc()
+            reply = f"Sorry, something broke: {e}"
+        self._emit_log("jarvis", reply)
+        conv_log("jarvis", reply, lang)
+        self._emit_status("speaking")
+        try:
+            speak(reply, lang)
+        except Exception as e:
+            self.error.emit(f"TTS failed: {e}")
+        self._emit_status("idle")
+
+    def _run_voice_mode(self, brain, speak, record_until_silence, transcribe,
+                        calibrate_silence, conv_log) -> None:
+        """Voice mode here ≈ tray-driven: each time the user invokes 'Talk now', we record once."""
+        calibrate_silence()
+        self._emit_log("system", "Voice mode ready. Use 'Talk now' from the tray to record.")
+        # In tray mode, the worker waits for an external trigger via a flag.
+        # For simplicity we expose `request_voice_turn`.
+        # If no external trigger, we just loop check.
+        while not self._stop.is_set():
+            if getattr(self, "_voice_trigger", False):
+                self._voice_trigger = False
+                self._emit_status("listening")
+                audio = record_until_silence()
+                text, lang = transcribe(audio)
+                if not text.strip():
+                    self._emit_log("system", "(nothing heard)")
+                    self._emit_status("idle")
+                    continue
+                self._process_turn(brain, text, lang, speak, conv_log)
+            time.sleep(0.1)
+
+    def request_voice_turn(self) -> None:
+        """Trigger a single voice turn from voice-mode worker."""
+        self._voice_trigger = True
+
+    def _run_wake_mode(self, brain, speak, listen, record_until_silence,
+                       transcribe, calibrate_silence, conv_log, followup_seconds) -> None:
+        from jarvis.voice.wake import WakeWordListener
+
+        try:
+            wake = WakeWordListener()
+        except Exception as e:
+            self.error.emit(f"Wake-word failed to load: {e}")
+            return
+
+        calibrate_silence()
+        self._emit_log("system", "Wake-word ready. Say 'Hey Jarvis'.")
+        speak("Jarvis online. Say hey jarvis when you need me.", "en")
+
+        try:
+            while not self._stop.is_set():
+                self._emit_status("idle")
+                # wake.wait_for_wake() blocks until detection. Stop won't be checked
+                # mid-block — user must close the app or trigger a hotkey to exit.
+                wake.wait_for_wake()
+                if self._stop.is_set():
+                    break
+                self._emit_status("listening")
+                text, lang = listen()
+                if not text:
+                    speak("I didn't catch that.", "en")
+                    continue
+                self._process_turn(brain, text, lang, speak, conv_log)
+
+                # Follow-up window
+                while not self._stop.is_set():
+                    if not self._wait_for_voice(followup_seconds):
+                        break
+                    self._emit_status("listening")
+                    audio = record_until_silence()
+                    text, lang = transcribe(audio)
+                    if not text.strip():
+                        break
+                    self._process_turn(brain, text, lang, speak, conv_log)
+        finally:
+            try:
+                wake.close()
+            except Exception:
+                pass
+
+    def _wait_for_voice(self, seconds: float) -> bool:
+        from jarvis.voice.listen import SAMPLE_RATE
+        detected = {"v": False}
+        deadline = time.time() + seconds
+
+        def cb(indata, frames, time_info, status):
+            rms = float(np.sqrt(np.mean(indata ** 2)))
+            if rms > 0.025:
+                detected["v"] = True
+
+        try:
+            with sd.InputStream(channels=1, samplerate=SAMPLE_RATE, callback=cb, dtype="float32"):
+                while time.time() < deadline and not detected["v"]:
+                    sd.sleep(80)
+        except Exception:
+            return False
+        return detected["v"]

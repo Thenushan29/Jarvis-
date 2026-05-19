@@ -22,11 +22,21 @@ STATUS_COLOR = {
 }
 
 
+STATUS_LABEL = {
+    "idle": "Idle — click Start when ready",
+    "starting": "Starting up...",
+    "listening": "🎤  Listening...",
+    "thinking": "🧠  Thinking...",
+    "speaking": "🔊  Speaking...",
+    "error": "❌  Error",
+}
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Jarvis")
-        self.resize(640, 520)
+        self.resize(720, 560)
 
         s = load_settings()
         self.worker = JarvisWorker(self)
@@ -117,7 +127,7 @@ class MainWindow(QMainWindow):
 
     # --- signals from worker ---
     def _on_status(self, s: str):
-        self.status_text.setText(s.capitalize())
+        self.status_text.setText(STATUS_LABEL.get(s, s.capitalize()))
         color = STATUS_COLOR.get(s, "#888")
         self.status_dot.setStyleSheet(f"color: {color}; font-size: 22px;")
 

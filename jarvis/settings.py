@@ -37,8 +37,8 @@ SCHEMA: dict[str, Any] = {
     "vision_api_key": "",
     "vision_model": "",
     "vision_base_url": "",
-    "tts_voice_tamil": "ta-IN-ValluvarNeural",
-    "tts_voice_english": "en-US-GuyNeural",
+    "tts_voice_tamil": "tamil_male",
+    "tts_voice_english": "jarvis",      # Iron Man Jarvis preset by default
     "whisper_model": "tiny",
     "max_listen_seconds": 15,
     "followup_seconds": 8,

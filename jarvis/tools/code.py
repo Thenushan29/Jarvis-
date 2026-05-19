@@ -23,6 +23,8 @@ DANGEROUS_PATTERNS = [
     r"\bdel\s+/[sfq]",
     r"\brmdir\s+/s",
     r"\bdiskpart\b",
+    r"\bshutdown\s+[/-][srpgh]\b",   # /s shutdown, /r restart, /p power-off, /g, /h
+    r"\bbcdedit\b",                   # boot config edits
 
     # PowerShell — the actual risk surface for us
     r"remove-item\s+.*-recurse",              # rm -rf

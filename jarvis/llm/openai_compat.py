@@ -53,6 +53,16 @@ class OpenAICompatClient(LLMClient):
             kwargs["tools"] = oa_tools
             kwargs["tool_choice"] = "auto"
         resp = self.client.chat.completions.create(**kwargs)
+        # Track token usage for the GUI status bar.
+        try:
+            from ..usage import record
+            usage = getattr(resp, "usage", None)
+            if usage is not None:
+                record(getattr(self, "_provider_id", "openai_compat"),
+                       int(getattr(usage, "prompt_tokens", 0) or 0),
+                       int(getattr(usage, "completion_tokens", 0) or 0))
+        except Exception:
+            pass
         msg = resp.choices[0].message
         tool_calls: list[ToolCall] = []
         for tc in (msg.tool_calls or []):

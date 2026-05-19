@@ -29,6 +29,17 @@ class AnthropicClient(LLMClient):
             tools=anth_tools or None,
             messages=history,
         )
+        # Track usage for the GUI status bar.
+        try:
+            from ..usage import record
+            usage = getattr(resp, "usage", None)
+            if usage is not None:
+                record("anthropic",
+                       int(getattr(usage, "input_tokens", 0) or 0),
+                       int(getattr(usage, "output_tokens", 0) or 0))
+        except Exception:
+            pass
+
         text_parts: list[str] = []
         tool_calls: list[ToolCall] = []
         for block in resp.content:

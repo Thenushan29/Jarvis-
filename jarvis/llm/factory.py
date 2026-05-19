@@ -82,7 +82,9 @@ def make_llm_client() -> LLMClient:
 
     # Everything else uses the OpenAI-compatible client.
     from .openai_compat import OpenAICompatClient
-    return OpenAICompatClient(api_key=LLM_API_KEY, model=model, base_url=base_url or None)
+    client = OpenAICompatClient(api_key=LLM_API_KEY, model=model, base_url=base_url or None)
+    client._provider_id = provider           # for per-provider usage tracking
+    return client
 
 
 def make_vision_client():

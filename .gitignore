@@ -10,6 +10,9 @@ data/wa_chrome_profile/
 data/reminders.json
 data/memory.json
 data/conversation.log
+data/notes.md
+data/usage.json
+jarvis_backup*.zip
 
 # ===== PYTHON =====
 __pycache__/

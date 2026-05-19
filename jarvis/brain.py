@@ -23,6 +23,7 @@ from .tools import clipboard as t_clipboard
 from .tools import translate as t_translate
 from .tools import file_search as t_file_search
 from .tools import calendar_gcal as t_calendar
+from .plugins_loader import load_plugins, reserved_names_check
 
 SYSTEM_PROMPT = """You are Jarvis, a personal voice assistant for the user on their Windows PC.
 
@@ -279,6 +280,21 @@ class Brain:
     def __init__(self, client: LLMClient | None = None) -> None:
         self.client: LLMClient = client or make_llm_client()
         self.history: list = []
+
+        # Load and merge plugin tools (won't crash if no plugins dir).
+        try:
+            plugin_tools, plugin_handlers = load_plugins()
+            builtin_names = {t["name"] for t in TOOLS}
+            plugin_tools = reserved_names_check(builtin_names, plugin_tools)
+            if plugin_tools:
+                TOOLS.extend(plugin_tools)
+                TOOL_HANDLERS.update({
+                    name: handler for name, handler in plugin_handlers.items()
+                    if name in {t["name"] for t in plugin_tools}
+                })
+                print(f"[brain] plugins loaded: +{len(plugin_tools)} tool(s)")
+        except Exception as e:
+            print(f"[brain] plugin load skipped: {e}")
 
     def _system(self) -> str:
         mem = t_memory.memory_summary_for_prompt() or "(nothing yet)"

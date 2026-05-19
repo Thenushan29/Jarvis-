@@ -5,7 +5,7 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QFormLayout, QLineEdit, QComboBox,
     QPushButton, QLabel, QHBoxLayout, QDialogButtonBox, QMessageBox,
-    QGroupBox, QTabWidget, QWidget, QCheckBox,
+    QGroupBox, QTabWidget, QWidget, QCheckBox, QFileDialog,
 )
 
 from ..settings import load as load_settings, save as save_settings, PROVIDER_INFO, get_models_for
@@ -256,8 +256,62 @@ class SettingsDialog(QDialog):
         hint.setWordWrap(True)
         hint.setStyleSheet("color: #666;")
         layout.addWidget(hint)
+
+        # Backup / restore / update row
+        maintenance_group = QGroupBox("Maintenance")
+        maint = QHBoxLayout(maintenance_group)
+        self.backup_btn = QPushButton("💾  Export backup...")
+        self.restore_btn = QPushButton("↩  Restore backup...")
+        self.update_btn = QPushButton("🔄  Check for updates")
+        maint.addWidget(self.backup_btn)
+        maint.addWidget(self.restore_btn)
+        maint.addWidget(self.update_btn)
+        layout.addWidget(maintenance_group)
+        self.backup_btn.clicked.connect(self._do_export_backup)
+        self.restore_btn.clicked.connect(self._do_import_backup)
+        self.update_btn.clicked.connect(self._do_check_update)
+
         layout.addStretch(1)
         return page
+
+    # ===== Maintenance handlers =====
+    def _do_export_backup(self):
+        from pathlib import Path
+        from .. import backup as bak
+        suggested = str(Path.home() / "Desktop" / "jarvis_backup.zip")
+        path, _ = QFileDialog.getSaveFileName(self, "Save Jarvis backup",
+                                              suggested, "Zip archive (*.zip)")
+        if not path:
+            return
+        try:
+            out = bak.export_backup(path)
+            QMessageBox.information(self, "Backup saved", f"Saved to:\n{out}")
+        except Exception as e:
+            QMessageBox.warning(self, "Backup failed", str(e))
+
+    def _do_import_backup(self):
+        from .. import backup as bak
+        path, _ = QFileDialog.getOpenFileName(self, "Choose a Jarvis backup",
+                                              "", "Zip archive (*.zip)")
+        if not path:
+            return
+        confirm = QMessageBox.question(
+            self, "Restore backup",
+            "This will overwrite your local settings, memory, reminders, notes, "
+            "and conversation log with the backup contents.\n\nContinue?",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if confirm != QMessageBox.Yes:
+            return
+        try:
+            msg = bak.import_backup(path)
+            QMessageBox.information(self, "Restore complete", msg)
+        except Exception as e:
+            QMessageBox.warning(self, "Restore failed", str(e))
+
+    def _do_check_update(self):
+        from .. import updater
+        QMessageBox.information(self, "Update status", updater.update_summary())
 
     # ===== Helpers =====
     def _update_voice_desc(self, combo: QComboBox, presets: list[dict], label: QLabel):

@@ -7,6 +7,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QFont, QColor, QTextCharFormat, QTextCursor
 
+from PySide6.QtCore import QTimer
+
 from .worker import JarvisWorker
 from .settings_dialog import SettingsDialog
 from .conversation_viewer import ConversationViewer
@@ -14,6 +16,7 @@ from .waveform import LiveWaveform
 from ..settings import load as load_settings, save as save_settings
 from ..hotkey import GlobalHotkey
 from .. import autostart
+from .. import usage as usage_mod
 
 
 STATUS_COLOR = {
@@ -99,7 +102,13 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.talk_btn)
 
         self.setStatusBar(QStatusBar(self))
-        self.statusBar().showMessage(f"Provider: {s.get('llm_provider','?')}  |  Model: {s.get('llm_model') or '(default)'}")
+        self._refresh_status_bar()
+
+        # Refresh usage every 5 s while running.
+        self._usage_timer = QTimer(self)
+        self._usage_timer.setInterval(5000)
+        self._usage_timer.timeout.connect(self._refresh_status_bar)
+        self._usage_timer.start()
 
         # Conversation history button
         self.history_btn = QPushButton("📜  History")
@@ -140,6 +149,15 @@ class MainWindow(QMainWindow):
     def _open_history(self):
         dlg = ConversationViewer(self)
         dlg.exec()
+
+    def _refresh_status_bar(self):
+        s = load_settings()
+        provider = s.get("llm_provider", "?")
+        model = s.get("llm_model") or "(default)"
+        usage_str = usage_mod.format_summary_short() or "Today: 0 tokens"
+        self.statusBar().showMessage(
+            f"Provider: {provider}  |  Model: {model}  |  {usage_str}"
+        )
 
     # --- actions ---
     def _start(self):

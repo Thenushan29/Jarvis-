@@ -38,6 +38,9 @@ from .tools import quotes as t_quotes
 from .tools import automation as t_auto
 from .tools import windows_mgmt as t_win
 from .tools import timer as t_timer
+from .tools import research as t_research
+from .tools import vision_click as t_vclick
+from .tools import email_draft as t_edraft
 from .plugins_loader import load_plugins, reserved_names_check
 from .personality import get_guidance as _personality_guidance
 from . import settings as _settings
@@ -332,6 +335,25 @@ TOOLS: list[dict] = [
           {"minutes": {"type": "number"}, "seconds": {"type": "number"},
            "label": {"type": "string"}}),
 
+    # ===== v9: agentic — research / vision-click / email drafting =====
+    _tool("research",
+          "Deep-research a topic: searches the web, reads the top results, and synthesizes "
+          "a briefing with sources. Use for 'research X', 'find out about Y', 'compare Z'.",
+          {"topic": {"type": "string"}, "depth": {"type": "integer"},
+           "save_note": {"type": "boolean"}}, ["topic"]),
+    _tool("find_on_screen",
+          "Locate a UI element on screen by description and return its coordinates (no click).",
+          {"description": {"type": "string"}}, ["description"]),
+    _tool("click_on_screen",
+          "Find a UI element by description (e.g. 'the blue Submit button', 'the search box') "
+          "using screen vision, then click it. Confirm with the user before clicking.",
+          {"description": {"type": "string"}, "button": {"type": "string"},
+           "double": {"type": "boolean"}}, ["description"]),
+    _tool("draft_email_reply",
+          "Read a recent email (by Gmail query, default unread) and draft a reply for review. "
+          "Does NOT send. `instructions` steers tone/content.",
+          {"query": {"type": "string"}, "instructions": {"type": "string"}}),
+
     # --- notes ---
     _tool("add_note",
           "Save a quick note to the user's notes file. Use when the user says "
@@ -486,6 +508,17 @@ TOOL_HANDLERS: dict[str, Any] = {
     "close_window": lambda i: t_win.close_window(i["title"]),
     "set_timer": lambda i, lang="en": t_timer.set_timer(
         i.get("minutes", 0), i.get("seconds", 0), i.get("label", "Timer"), lang
+    ),
+    # v9 — agentic
+    "research": lambda i: t_research.research(
+        i["topic"], _int(i.get("depth"), 3), bool(i.get("save_note", False))
+    ),
+    "find_on_screen": lambda i: t_vclick.find_on_screen(i["description"]),
+    "click_on_screen": lambda i: t_vclick.click_on_screen(
+        i["description"], i.get("button", "left"), bool(i.get("double", False))
+    ),
+    "draft_email_reply": lambda i: t_edraft.draft_email_reply(
+        i.get("query", "is:unread"), i.get("instructions", "")
     ),
 }
 

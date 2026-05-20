@@ -41,6 +41,7 @@ from .tools import timer as t_timer
 from .tools import research as t_research
 from .tools import vision_click as t_vclick
 from .tools import email_draft as t_edraft
+from .tools import planner as t_planner
 from .plugins_loader import load_plugins, reserved_names_check
 from .personality import get_guidance as _personality_guidance
 from . import settings as _settings
@@ -354,6 +355,18 @@ TOOLS: list[dict] = [
           "Does NOT send. `instructions` steers tone/content.",
           {"query": {"type": "string"}, "instructions": {"type": "string"}}),
 
+    # ===== v10: autonomous agent =====
+    _tool("accomplish",
+          "Autonomously complete a COMPLEX multi-step goal end-to-end (plans, executes many "
+          "tools, self-corrects). Use ONLY for genuinely multi-step tasks like 'research X and "
+          "save a note', 'open Y, find Z, and do W'. For single actions, call the specific tool "
+          "directly instead.",
+          {"goal": {"type": "string"}, "max_steps": {"type": "integer"}}, ["goal"]),
+    _tool("plan_task",
+          "Produce a step-by-step plan for a goal WITHOUT executing it. Use when the user asks "
+          "'how would you do X' or wants to review a plan first.",
+          {"goal": {"type": "string"}}, ["goal"]),
+
     # --- notes ---
     _tool("add_note",
           "Save a quick note to the user's notes file. Use when the user says "
@@ -520,6 +533,11 @@ TOOL_HANDLERS: dict[str, Any] = {
     "draft_email_reply": lambda i: t_edraft.draft_email_reply(
         i.get("query", "is:unread"), i.get("instructions", "")
     ),
+    # v10 — autonomous agent
+    "accomplish": lambda i: __import__("jarvis.agent", fromlist=["accomplish"]).accomplish(
+        i["goal"], _int(i.get("max_steps"), 12)
+    ),
+    "plan_task": lambda i: t_planner.plan_task(i["goal"]),
 }
 
 

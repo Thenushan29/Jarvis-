@@ -35,6 +35,9 @@ from .tools import convert as t_convert
 from .tools import web_search_real as t_websearch
 from .tools import ocr as t_ocr
 from .tools import quotes as t_quotes
+from .tools import automation as t_auto
+from .tools import windows_mgmt as t_win
+from .tools import timer as t_timer
 from .plugins_loader import load_plugins, reserved_names_check
 from .personality import get_guidance as _personality_guidance
 from . import settings as _settings
@@ -296,6 +299,39 @@ TOOLS: list[dict] = [
           "Live cricket scores from cricbuzz. Optional `query` filters (e.g. 'India', 'IPL').",
           {"query": {"type": "string"}}),
 
+    # ===== v8: screen automation / windows / timers =====
+    _tool("type_text",
+          "Type text into whatever currently has keyboard focus. Confirm with user before "
+          "typing into anything sensitive.",
+          {"text": {"type": "string"}}, ["text"]),
+    _tool("press_keys",
+          "Press a key or hotkey combo. Examples: 'enter', 'ctrl+s', 'alt+tab', 'win+d', 'ctrl+c'.",
+          {"keys": {"type": "string"}}, ["keys"]),
+    _tool("mouse_click",
+          "Click the mouse. Provide x,y to click a specific point, or omit to click the current "
+          "position. button = left|right|middle. Confirm before clicking.",
+          {"x": {"type": "integer"}, "y": {"type": "integer"},
+           "button": {"type": "string"}, "clicks": {"type": "integer"}}),
+    _tool("scroll", "Scroll the active window. Negative = down, positive = up.",
+          {"amount": {"type": "integer"}}),
+    _tool("screen_size", "Get the screen resolution.", {}),
+
+    _tool("list_windows", "List the titles of all open windows.", {}),
+    _tool("active_window", "Get the title of the currently focused window.", {}),
+    _tool("focus_window", "Bring a window to the front by a title substring.",
+          {"title": {"type": "string"}}, ["title"]),
+    _tool("minimize_window", "Minimize a window by title substring.",
+          {"title": {"type": "string"}}, ["title"]),
+    _tool("maximize_window", "Maximize a window by title substring.",
+          {"title": {"type": "string"}}, ["title"]),
+    _tool("close_window", "Close a window by title substring. Confirm with user first.",
+          {"title": {"type": "string"}}, ["title"]),
+
+    _tool("set_timer",
+          "Set a countdown timer that fires like a reminder. Provide minutes and/or seconds.",
+          {"minutes": {"type": "number"}, "seconds": {"type": "number"},
+           "label": {"type": "string"}}),
+
     # --- notes ---
     _tool("add_note",
           "Save a quick note to the user's notes file. Use when the user says "
@@ -434,6 +470,23 @@ TOOL_HANDLERS: dict[str, Any] = {
         i["summary"], i["start_time"], _int(i.get("duration_minutes"), 60),
         i.get("description", ""), i.get("location", "")
     ),
+    # v8 — screen automation / windows / timers
+    "type_text": lambda i: t_auto.type_text(i["text"]),
+    "press_keys": lambda i: t_auto.press_keys(i["keys"]),
+    "mouse_click": lambda i: t_auto.mouse_click(
+        i.get("x"), i.get("y"), i.get("button", "left"), _int(i.get("clicks"), 1)
+    ),
+    "scroll": lambda i: t_auto.scroll(_int(i.get("amount"), -500)),
+    "screen_size": lambda i: t_auto.screen_size(),
+    "list_windows": lambda i: t_win.list_windows(),
+    "active_window": lambda i: t_win.active_window(),
+    "focus_window": lambda i: t_win.focus_window(i["title"]),
+    "minimize_window": lambda i: t_win.minimize_window(i["title"]),
+    "maximize_window": lambda i: t_win.maximize_window(i["title"]),
+    "close_window": lambda i: t_win.close_window(i["title"]),
+    "set_timer": lambda i, lang="en": t_timer.set_timer(
+        i.get("minutes", 0), i.get("seconds", 0), i.get("label", "Timer"), lang
+    ),
 }
 
 
@@ -484,7 +537,7 @@ class Brain:
         if not fn:
             return f"Unknown tool: {name}"
         try:
-            if name == "add_reminder":
+            if name in ("add_reminder", "set_timer"):
                 return fn(args, lang=lang)
             return fn(args)
         except Exception as e:

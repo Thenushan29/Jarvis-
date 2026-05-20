@@ -105,8 +105,12 @@ def _set_personality(personality_id: str) -> str:
 
 TOOLS: list[dict] = [
     # --- apps / web ---
-    _tool("open_app", "Open an app or website by friendly name (chrome, youtube, whatsapp, vscode, notepad, spotify, etc).",
+    _tool("open_app", "Open ANY installed app or website by name. Searches the full Start-menu + "
+                      "Microsoft Store app list, so it works for apps beyond the common ones.",
           {"name": {"type": "string"}}, ["name"]),
+    _tool("list_apps", "List installed apps on this PC, optionally filtered by a search term.",
+          {"query": {"type": "string"}, "limit": {"type": "integer"}}),
+    _tool("refresh_apps", "Rebuild the installed-app index (use after installing new software).", {}),
     _tool("open_website", "Open a URL in the default browser.",
           {"url": {"type": "string"}}, ["url"]),
     _tool("web_search", "Open Google search results for the query.",
@@ -341,6 +345,10 @@ TOOLS: list[dict] = [
 
 TOOL_HANDLERS: dict[str, Any] = {
     "open_app": lambda i: t_apps.open_app(i["name"]),
+    "list_apps": lambda i: __import__("jarvis.tools.app_index", fromlist=["list_apps"]).list_apps(
+        i.get("query", ""), _int(i.get("limit"), 30)
+    ),
+    "refresh_apps": lambda i: __import__("jarvis.tools.app_index", fromlist=["refresh_apps"]).refresh_apps(),
     "open_website": lambda i: t_apps.open_website(i["url"]),
     "web_search": lambda i: t_apps.web_search(i["query"]),
     "play_on_youtube": lambda i: t_apps.play_on_youtube(i["query"]),

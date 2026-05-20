@@ -32,16 +32,38 @@ APP_ALIASES: dict[str, str] = {
 
 
 def open_app(name: str) -> str:
-    """Open an app by friendly name or executable."""
-    target = APP_ALIASES.get(name.lower().strip(), name)
+    """Open an app by friendly name, alias, installed-app name, or executable."""
+    key = name.lower().strip()
+
+    # 1. Known alias (fast path for common apps + websites)
+    if key in APP_ALIASES:
+        target = APP_ALIASES[key]
+        try:
+            if target.startswith(("http://", "https://")):
+                webbrowser.open(target)
+            elif target.startswith("ms-settings:"):
+                os.startfile(target)
+            else:
+                subprocess.Popen(target, shell=True)
+            return f"Opened {name}."
+        except Exception as e:
+            return f"Could not open {name}: {e}"
+
+    # 2. Search the full installed-app index (Start menu + Store apps)
     try:
-        if target.startswith(("http://", "https://", "ms-settings:")):
-            webbrowser.open(target) if target.startswith("http") else os.startfile(target)
-        else:
-            subprocess.Popen(target, shell=True)
+        from . import app_index
+        result = app_index.open_installed_app(name)
+        if result:
+            return result
+    except Exception as e:
+        print(f"[apps] app_index lookup failed: {e}")
+
+    # 3. Last resort — treat the name as an executable / command on PATH
+    try:
+        subprocess.Popen(name, shell=True)
         return f"Opened {name}."
     except Exception as e:
-        return f"Could not open {name}: {e}"
+        return f"Could not find or open an app called '{name}': {e}"
 
 
 def open_website(url: str) -> str:

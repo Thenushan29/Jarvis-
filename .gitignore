@@ -14,6 +14,8 @@ data/notes.md
 data/usage.json
 data/prenotified.json
 data/app_index.json
+data/routines.json
+data/skills.json
 jarvis_backup*.zip
 
 # ===== PYTHON =====

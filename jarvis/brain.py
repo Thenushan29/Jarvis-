@@ -42,6 +42,7 @@ from .tools import research as t_research
 from .tools import vision_click as t_vclick
 from .tools import email_draft as t_edraft
 from .tools import planner as t_planner
+from . import routines as t_routines
 from .plugins_loader import load_plugins, reserved_names_check
 from .personality import get_guidance as _personality_guidance
 from . import settings as _settings
@@ -367,6 +368,20 @@ TOOLS: list[dict] = [
           "'how would you do X' or wants to review a plan first.",
           {"goal": {"type": "string"}}, ["goal"]),
 
+    # ===== v11: scheduled autonomous routines =====
+    _tool("create_routine",
+          "Create a recurring routine that autonomously runs a goal on a schedule. "
+          "schedule_type: daily | hourly | weekly. time is 24h HH:MM. day is a weekday "
+          "name (for weekly). Example goal: 'brief me on weather, news, and today reminders'.",
+          {"name": {"type": "string"}, "goal": {"type": "string"},
+           "schedule_type": {"type": "string"}, "time": {"type": "string"},
+           "day": {"type": "string"}}, ["name", "goal"]),
+    _tool("list_routines", "List all scheduled routines.", {}),
+    _tool("delete_routine", "Delete a routine by name.",
+          {"name": {"type": "string"}}, ["name"]),
+    _tool("run_routine_now", "Run a saved routine immediately (autonomously).",
+          {"name": {"type": "string"}}, ["name"]),
+
     # --- notes ---
     _tool("add_note",
           "Save a quick note to the user's notes file. Use when the user says "
@@ -538,6 +553,14 @@ TOOL_HANDLERS: dict[str, Any] = {
         i["goal"], _int(i.get("max_steps"), 12)
     ),
     "plan_task": lambda i: t_planner.plan_task(i["goal"]),
+    # v11 — routines
+    "create_routine": lambda i: t_routines.create_routine(
+        i["name"], i["goal"], i.get("schedule_type", "daily"),
+        i.get("time", "08:00"), i.get("day", "monday")
+    ),
+    "list_routines": lambda i: t_routines.list_routines(),
+    "delete_routine": lambda i: t_routines.delete_routine(i["name"]),
+    "run_routine_now": lambda i: t_routines.run_routine_now(i["name"]),
 }
 
 

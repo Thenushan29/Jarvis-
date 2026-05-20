@@ -93,6 +93,12 @@ class JarvisWorker(QObject):
             )
             proactive.start()
 
+            from jarvis.routines import RoutineScheduler
+            routines = RoutineScheduler(
+                on_result=lambda name, text: self._on_routine(name, text, speak, conv_log)
+            )
+            routines.start()
+
             try:
                 if self._mode == "wake":
                     self._run_wake_mode(brain, speak, listen, record_until_silence,
@@ -106,6 +112,10 @@ class JarvisWorker(QObject):
                 scheduler.stop()
                 try:
                     proactive.stop()
+                except Exception:
+                    pass
+                try:
+                    routines.stop()
                 except Exception:
                     pass
                 self._emit_status("idle")
@@ -132,6 +142,20 @@ class JarvisWorker(QObject):
             speak(msg_voice, lang)
         except Exception as e:
             print(f"[prenotify] speak failed: {e}")
+
+    def _on_routine(self, name: str, text: str, speak, conv_log) -> None:
+        """A scheduled routine finished — announce + log its result."""
+        self._emit_log("system", f"[routine '{name}'] {text}")
+        conv_log("routine", f"{name}: {text}", "en")
+        try:
+            from ..notify import toast
+            toast(f"Jarvis routine: {name}", text[:200], timeout=10)
+        except Exception:
+            pass
+        try:
+            speak(text, "en")
+        except Exception as e:
+            print(f"[routine] speak failed: {e}")
 
     def _on_reminder(self, reminder: dict, speak, conv_log) -> None:
         text = reminder["text"]

@@ -29,6 +29,12 @@ from .tools import news as t_news
 from .tools import document as t_doc
 from .tools import skills as t_skills
 from .tools import python_exec as t_pyexec
+from .tools import image_gen as t_img
+from .tools import file_ops as t_fileops
+from .tools import convert as t_convert
+from .tools import web_search_real as t_websearch
+from .tools import ocr as t_ocr
+from .tools import quotes as t_quotes
 from .plugins_loader import load_plugins, reserved_names_check
 from .personality import get_guidance as _personality_guidance
 from . import settings as _settings
@@ -236,6 +242,56 @@ TOOLS: list[dict] = [
           "compute reliably (precise arithmetic, regex, date arithmetic).",
           {"code": {"type": "string"}, "timeout": {"type": "integer"}}, ["code"]),
 
+    # ===== v7: image gen / file ops / convert / web search / OCR / quotes =====
+    _tool("generate_image",
+          "Generate an image from a text prompt (saves to Desktop). Uses Pollinations.ai (free).",
+          {"prompt": {"type": "string"},
+           "width": {"type": "integer"}, "height": {"type": "integer"}}, ["prompt"]),
+
+    _tool("copy_file",   "Copy a file or directory. Confirm with user first.",
+          {"src": {"type": "string"}, "dst": {"type": "string"}}, ["src", "dst"]),
+    _tool("move_file",   "Move (or rename across folders) a file. Confirm with user first.",
+          {"src": {"type": "string"}, "dst": {"type": "string"}}, ["src", "dst"]),
+    _tool("rename_file", "Rename a file in place. Confirm with user first.",
+          {"path": {"type": "string"}, "new_name": {"type": "string"}}, ["path", "new_name"]),
+    _tool("make_dir",    "Create a directory (and any missing parents).",
+          {"path": {"type": "string"}}, ["path"]),
+    _tool("delete_file",
+          "Delete a file. By default sends to Recycle Bin (reversible). "
+          "Set permanent=true ONLY when the user explicitly says 'permanently delete'.",
+          {"path": {"type": "string"}, "permanent": {"type": "boolean"}}, ["path"]),
+
+    _tool("convert_currency",
+          "Convert an amount from one currency to another using live FX rates.",
+          {"amount": {"type": "number"},
+           "from_currency": {"type": "string"}, "to_currency": {"type": "string"}},
+          ["amount", "from_currency", "to_currency"]),
+    _tool("convert_unit",
+          "Convert between physical units. Supports length, mass, time, volume, temperature.",
+          {"amount": {"type": "number"},
+           "from_unit": {"type": "string"}, "to_unit": {"type": "string"}},
+          ["amount", "from_unit", "to_unit"]),
+
+    _tool("web_search_real",
+          "Run a real web search and return top result titles + URLs + snippets. "
+          "Different from `web_search` which only opens a browser tab.",
+          {"query": {"type": "string"}, "max_results": {"type": "integer"}}, ["query"]),
+
+    _tool("ocr_screen",
+          "Take a screenshot and extract all visible text from it. Optional 'question' "
+          "narrows the output to lines matching the question's keywords.",
+          {"question": {"type": "string"}}),
+    _tool("ocr_image",
+          "Extract text from a local image file.",
+          {"path": {"type": "string"}, "question": {"type": "string"}}, ["path"]),
+
+    _tool("stock_quote",
+          "Get current stock price + day change. Examples: AAPL, MSFT, TCS.NS, INFY.NS.",
+          {"symbol": {"type": "string"}}, ["symbol"]),
+    _tool("cricket_score",
+          "Live cricket scores from cricbuzz. Optional `query` filters (e.g. 'India', 'IPL').",
+          {"query": {"type": "string"}}),
+
     # --- notes ---
     _tool("add_note",
           "Save a quick note to the user's notes file. Use when the user says "
@@ -335,6 +391,26 @@ TOOL_HANDLERS: dict[str, Any] = {
     "list_skills": lambda i: t_skills.list_skills(),
     "delete_skill": lambda i: t_skills.delete_skill(i["name"]),
     "run_python": lambda i: t_pyexec.run_python(i["code"], _int(i.get("timeout"), 5)),
+    # v7
+    "generate_image": lambda i: t_img.generate_image(
+        i["prompt"], _int(i.get("width"), 1024), _int(i.get("height"), 1024)
+    ),
+    "copy_file":   lambda i: t_fileops.copy_file(i["src"], i["dst"]),
+    "move_file":   lambda i: t_fileops.move_file(i["src"], i["dst"]),
+    "rename_file": lambda i: t_fileops.rename_file(i["path"], i["new_name"]),
+    "make_dir":    lambda i: t_fileops.make_dir(i["path"]),
+    "delete_file": lambda i: t_fileops.delete_file(i["path"], bool(i.get("permanent", False))),
+    "convert_currency": lambda i: t_convert.convert_currency(
+        i["amount"], i["from_currency"], i["to_currency"]
+    ),
+    "convert_unit": lambda i: t_convert.convert_unit(
+        i["amount"], i["from_unit"], i["to_unit"]
+    ),
+    "web_search_real": lambda i: t_websearch.web_search(i["query"], _int(i.get("max_results"), 5)),
+    "ocr_screen": lambda i: t_ocr.ocr_screen(i.get("question", "")),
+    "ocr_image":  lambda i: t_ocr.ocr_image(i["path"], i.get("question", "")),
+    "stock_quote": lambda i: t_quotes.stock_quote(i["symbol"]),
+    "cricket_score": lambda i: t_quotes.cricket_score(i.get("query", "")),
     "add_note": lambda i: t_notes.add_note(i["text"], i.get("tag", "")),
     "list_notes": lambda i: t_notes.list_notes(_int(i.get("max_results"), 10), i.get("query", "")),
     "read_clipboard": lambda i: t_clipboard.read_clipboard(),

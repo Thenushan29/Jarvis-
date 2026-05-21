@@ -67,6 +67,7 @@ from .tools import focus as t_focus
 from .tools import scheduling as t_sched
 from .tools import profile as t_profile
 from .tools import excel as t_excel
+from .tools import smart_home as t_ha
 from . import watchers as t_watch
 from .plugins_loader import load_plugins, reserved_names_check
 from . import settings as _settings
@@ -622,6 +623,20 @@ TOOLS: list[dict] = [
     _tool("excel_read_cell", "Read a single cell value.",
           {"path": {"type": "string"}, "cell": {"type": "string"}, "sheet": {"type": "string"}},
           ["path", "cell"]),
+
+    # ===== Smart home (Home Assistant) =====
+    _tool("ha_list_devices", "List Home Assistant devices (optionally filter by domain like light/switch).",
+          {"domain": {"type": "string"}}),
+    _tool("ha_turn_on", "Turn ON a smart-home device by name (e.g. 'living room light').",
+          {"query": {"type": "string"}}, ["query"]),
+    _tool("ha_turn_off", "Turn OFF a smart-home device by name.",
+          {"query": {"type": "string"}}, ["query"]),
+    _tool("ha_set_brightness", "Set a light's brightness percent (0-100).",
+          {"query": {"type": "string"}, "percent": {"type": "integer"}}, ["query", "percent"]),
+    _tool("ha_device_state", "Get the current state of a smart-home device.",
+          {"query": {"type": "string"}}, ["query"]),
+    _tool("ha_activate_scene", "Activate a Home Assistant scene by name.",
+          {"query": {"type": "string"}}, ["query"]),
 ]
 
 TOOL_HANDLERS: dict[str, Any] = {
@@ -858,6 +873,13 @@ TOOL_HANDLERS: dict[str, Any] = {
     "excel_append_row": lambda i: t_excel.append_row(i["path"], i.get("row") or [], i.get("sheet", "")),
     "excel_set_cell": lambda i: t_excel.set_cell(i["path"], i["cell"], i["value"], i.get("sheet", "")),
     "excel_read_cell": lambda i: t_excel.read_cell(i["path"], i["cell"], i.get("sheet", "")),
+    # Smart home (Home Assistant)
+    "ha_list_devices": lambda i: t_ha.list_devices(i.get("domain", "")),
+    "ha_turn_on": lambda i: t_ha.turn_on(i["query"]),
+    "ha_turn_off": lambda i: t_ha.turn_off(i["query"]),
+    "ha_set_brightness": lambda i: t_ha.set_brightness(i["query"], _int(i.get("percent"), 100)),
+    "ha_device_state": lambda i: t_ha.device_state(i["query"]),
+    "ha_activate_scene": lambda i: t_ha.activate_scene(i["query"]),
 }
 
 

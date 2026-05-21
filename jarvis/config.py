@@ -51,6 +51,10 @@ TTS_VOICE_ENGLISH = os.getenv("TTS_VOICE_ENGLISH", "en-US-GuyNeural").strip()
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "tiny").strip()
 MAX_LISTEN_SECONDS = int(os.getenv("MAX_LISTEN_SECONDS", "15"))
 
+# Home Assistant (smart home) — optional
+HA_URL = os.getenv("HA_URL", "").strip()
+HA_TOKEN = os.getenv("HA_TOKEN", "").strip()
+
 DATA_DIR = ROOT / "data"
 DATA_DIR.mkdir(exist_ok=True)
 REMINDERS_FILE = DATA_DIR / "reminders.json"

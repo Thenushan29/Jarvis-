@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from ..config import (
     LLM_PROVIDER, LLM_API_KEY, LLM_MODEL, LLM_BASE_URL,
+    LLM_FALLBACK_PROVIDER, LLM_FALLBACK_API_KEY, LLM_FALLBACK_MODEL,
     VISION_PROVIDER, VISION_API_KEY, VISION_MODEL, VISION_BASE_URL,
 )
 from .base import LLMClient
@@ -61,30 +62,49 @@ def _resolve(provider: str, key_kind: str, override: str) -> str:
     return PROVIDER_DEFAULTS.get(provider, {}).get(key_kind, "") or ""
 
 
-def make_llm_client() -> LLMClient:
-    """Build the configured LLM client for the brain."""
-    provider = (LLM_PROVIDER or "groq").lower()
-    base_url = _resolve(provider, "base_url", LLM_BASE_URL)
-    model = _resolve(provider, "model", LLM_MODEL)
-
-    if not LLM_API_KEY:
-        raise RuntimeError(
-            f"LLM_API_KEY is empty. Set it in .env (provider={provider})."
-        )
+def _build_one(provider: str, api_key: str, model_override: str,
+               base_url_override: str = "") -> LLMClient:
+    """Build a single LLM client for a provider."""
+    provider = (provider or "groq").lower()
+    model = _resolve(provider, "model", model_override)
+    base_url = _resolve(provider, "base_url", base_url_override)
+    if not api_key:
+        raise RuntimeError(f"API key is empty for provider '{provider}'.")
     if not model:
-        raise RuntimeError(
-            f"LLM_MODEL is empty and provider '{provider}' has no default. Set LLM_MODEL in .env."
-        )
-
+        raise RuntimeError(f"No model for provider '{provider}'. Set the model in .env.")
     if provider == "anthropic":
         from .anthropic_provider import AnthropicClient
-        return AnthropicClient(api_key=LLM_API_KEY, model=model)
-
-    # Everything else uses the OpenAI-compatible client.
+        return AnthropicClient(api_key=api_key, model=model)
     from .openai_compat import OpenAICompatClient
-    client = OpenAICompatClient(api_key=LLM_API_KEY, model=model, base_url=base_url or None)
-    client._provider_id = provider           # for per-provider usage tracking
+    client = OpenAICompatClient(api_key=api_key, model=model, base_url=base_url or None)
+    client._provider_id = provider
     return client
+
+
+def _is_openai_family(provider: str) -> bool:
+    return (provider or "").lower() != "anthropic"
+
+
+def make_llm_client() -> LLMClient:
+    """Build the configured LLM client for the brain — with optional fallback chain."""
+    primary_provider = (LLM_PROVIDER or "groq").lower()
+    primary = _build_one(primary_provider, LLM_API_KEY, LLM_MODEL, LLM_BASE_URL)
+
+    # Optional fallback — only chained if it's the SAME API family (compatible history).
+    if LLM_FALLBACK_PROVIDER and LLM_FALLBACK_API_KEY:
+        fb_provider = LLM_FALLBACK_PROVIDER
+        if _is_openai_family(primary_provider) == _is_openai_family(fb_provider):
+            try:
+                fallback = _build_one(fb_provider, LLM_FALLBACK_API_KEY, LLM_FALLBACK_MODEL)
+                from .fallback import FallbackClient
+                print(f"[llm] fallback enabled: {primary_provider} -> {fb_provider}")
+                return FallbackClient([primary, fallback])
+            except Exception as e:
+                print(f"[llm] fallback disabled ({e}); using primary only.")
+        else:
+            print(f"[llm] fallback '{fb_provider}' is a different API family from "
+                  f"'{primary_provider}'; skipping (history formats would clash).")
+    return primary
 
 
 def make_vision_client():

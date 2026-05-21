@@ -19,6 +19,13 @@ LLM_API_KEY = os.getenv("LLM_API_KEY", "").strip()
 LLM_MODEL = os.getenv("LLM_MODEL", "").strip()
 LLM_BASE_URL = os.getenv("LLM_BASE_URL", "").strip()
 
+# Optional: a fallback LLM used automatically when the primary rate-limits / errors.
+# Must be the SAME API family as the primary (e.g. primary=groq, fallback=gemini —
+# both OpenAI-compatible). Great free pairing: Groq + Gemini.
+LLM_FALLBACK_PROVIDER = os.getenv("LLM_FALLBACK_PROVIDER", "").strip().lower()
+LLM_FALLBACK_API_KEY = os.getenv("LLM_FALLBACK_API_KEY", "").strip()
+LLM_FALLBACK_MODEL = os.getenv("LLM_FALLBACK_MODEL", "").strip()
+
 # Optional: vision provider can differ from text provider.
 VISION_PROVIDER = os.getenv("VISION_PROVIDER", "").strip().lower()
 VISION_API_KEY = os.getenv("VISION_API_KEY", "").strip()

@@ -54,6 +54,7 @@ from .tools import tasks as t_tasks
 from .tools import contacts as t_contacts
 from .tools import expenses as t_expenses
 from .tools import shopping as t_shopping
+from .tools import maps as t_maps
 from .plugins_loader import load_plugins, reserved_names_check
 from . import settings as _settings
 
@@ -508,6 +509,16 @@ TOOLS: list[dict] = [
     _tool("check_shopping_item", "Check off a shopping item as bought.",
           {"item": {"type": "string"}}, ["item"]),
     _tool("clear_shopping", "Clear the whole shopping list.", {}),
+
+    # ===== v18: maps & directions =====
+    _tool("map_distance", "Driving distance + time between two places.",
+          {"origin": {"type": "string"}, "destination": {"type": "string"}},
+          ["origin", "destination"]),
+    _tool("map_directions", "Open turn-by-turn directions between two places in the browser.",
+          {"origin": {"type": "string"}, "destination": {"type": "string"}},
+          ["origin", "destination"]),
+    _tool("find_place", "Locate a place/address and report coordinates.",
+          {"query": {"type": "string"}}, ["query"]),
 ]
 
 TOOL_HANDLERS: dict[str, Any] = {
@@ -692,6 +703,10 @@ TOOL_HANDLERS: dict[str, Any] = {
     "list_shopping": lambda i: t_shopping.list_shopping(),
     "check_shopping_item": lambda i: t_shopping.check_shopping_item(i["item"]),
     "clear_shopping": lambda i: t_shopping.clear_shopping(),
+    # v18 — maps
+    "map_distance": lambda i: t_maps.distance(i["origin"], i["destination"]),
+    "map_directions": lambda i: t_maps.directions(i["origin"], i["destination"]),
+    "find_place": lambda i: t_maps.find_place(i["query"]),
 }
 
 

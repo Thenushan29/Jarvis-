@@ -46,6 +46,9 @@ from . import routines as t_routines
 from .tools import system_monitor as t_sysmon
 from .tools import network as t_net
 from .tools import spreadsheet as t_sheet
+from .tools import computer_use as t_compuse
+from .tools import self_extend as t_selfext
+from .tools import knowledge as t_know
 from .plugins_loader import load_plugins, reserved_names_check
 from .personality import get_guidance as _personality_guidance
 from . import settings as _settings
@@ -399,6 +402,23 @@ TOOLS: list[dict] = [
           "Read a CSV or Excel file and answer a question about the data (or summarize it).",
           {"path": {"type": "string"}, "question": {"type": "string"}}, ["path"]),
 
+    # ===== v13: frontier — computer-use, self-extension, knowledge base =====
+    _tool("operate_computer",
+          "AUTONOMOUSLY control the screen to accomplish a GUI goal: it screenshots, decides "
+          "the next click/type/scroll/key, acts, re-observes, and repeats. Use for multi-step "
+          "on-screen tasks ('fill this form', 'navigate to X and click Y'). Confirm with user first.",
+          {"goal": {"type": "string"}, "max_steps": {"type": "integer"}}, ["goal"]),
+    _tool("create_plugin",
+          "Write a NEW tool/plugin for Jarvis from a description, then load it live. Use when the "
+          "user wants a capability that doesn't exist yet and it can be done with pure Python.",
+          {"name": {"type": "string"}, "description": {"type": "string"}}, ["name", "description"]),
+    _tool("index_folder",
+          "Index a folder of documents (txt/md/pdf/csv) into a searchable knowledge base.",
+          {"folder": {"type": "string"}}, ["folder"]),
+    _tool("ask_knowledge",
+          "Answer a question across all documents in a folder (auto-indexes if needed).",
+          {"folder": {"type": "string"}, "question": {"type": "string"}}, ["folder", "question"]),
+
     # --- notes ---
     _tool("add_note",
           "Save a quick note to the user's notes file. Use when the user says "
@@ -586,6 +606,13 @@ TOOL_HANDLERS: dict[str, Any] = {
     "network_info": lambda i: t_net.network_info(),
     "check_internet": lambda i: t_net.check_internet(),
     "analyze_spreadsheet": lambda i: t_sheet.analyze_spreadsheet(i["path"], i.get("question", "")),
+    # v13 — frontier
+    "operate_computer": lambda i: t_compuse.operate_computer(
+        i["goal"], _int(i.get("max_steps"), 10), progress=lambda m: print(m)
+    ),
+    "create_plugin": lambda i: t_selfext.create_plugin(i["name"], i["description"]),
+    "index_folder": lambda i: t_know.index_folder(i["folder"]),
+    "ask_knowledge": lambda i: t_know.ask_knowledge(i["folder"], i["question"]),
 }
 
 

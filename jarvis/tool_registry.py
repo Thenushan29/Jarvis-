@@ -55,6 +55,9 @@ from .tools import contacts as t_contacts
 from .tools import expenses as t_expenses
 from .tools import shopping as t_shopping
 from .tools import maps as t_maps
+from .tools import habits as t_habits
+from .tools import health as t_health
+from .tools import journal as t_journal
 from .plugins_loader import load_plugins, reserved_names_check
 from . import settings as _settings
 
@@ -519,6 +522,26 @@ TOOLS: list[dict] = [
           ["origin", "destination"]),
     _tool("find_place", "Locate a place/address and report coordinates.",
           {"query": {"type": "string"}}, ["query"]),
+
+    # ===== v19: wellbeing — habits / health / journal =====
+    _tool("add_habit", "Create a daily habit to track with streaks.",
+          {"name": {"type": "string"}}, ["name"]),
+    _tool("check_habit", "Mark a habit done for today (builds the streak).",
+          {"name": {"type": "string"}}, ["name"]),
+    _tool("list_habits", "List habits with today's status + current streaks.", {}),
+    _tool("delete_habit", "Delete a habit.", {"name": {"type": "string"}}, ["name"]),
+
+    _tool("log_health",
+          "Log a health metric: water | weight | mood | steps | medication | sleep.",
+          {"metric": {"type": "string"}, "value": {"type": "string"},
+           "note": {"type": "string"}}, ["metric"]),
+    _tool("health_summary", "Summarize health logs for today | week | all.",
+          {"period": {"type": "string"}}),
+
+    _tool("add_journal_entry", "Write a journal entry (dated automatically).",
+          {"text": {"type": "string"}}, ["text"]),
+    _tool("read_journal", "Read journal entries: 'recent', 'today', or a date YYYY-MM-DD.",
+          {"when": {"type": "string"}, "count": {"type": "integer"}}),
 ]
 
 TOOL_HANDLERS: dict[str, Any] = {
@@ -707,6 +730,15 @@ TOOL_HANDLERS: dict[str, Any] = {
     "map_distance": lambda i: t_maps.distance(i["origin"], i["destination"]),
     "map_directions": lambda i: t_maps.directions(i["origin"], i["destination"]),
     "find_place": lambda i: t_maps.find_place(i["query"]),
+    # v19 — wellbeing
+    "add_habit": lambda i: t_habits.add_habit(i["name"]),
+    "check_habit": lambda i: t_habits.check_habit(i["name"]),
+    "list_habits": lambda i: t_habits.list_habits(),
+    "delete_habit": lambda i: t_habits.delete_habit(i["name"]),
+    "log_health": lambda i: t_health.log_health(i["metric"], i.get("value", ""), i.get("note", "")),
+    "health_summary": lambda i: t_health.health_summary(i.get("period", "today")),
+    "add_journal_entry": lambda i: t_journal.add_journal_entry(i["text"]),
+    "read_journal": lambda i: t_journal.read_journal(i.get("when", "recent"), _int(i.get("count"), 5)),
 }
 
 

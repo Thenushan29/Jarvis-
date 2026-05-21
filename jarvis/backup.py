@@ -20,6 +20,15 @@ INCLUDE_FILES = [
     "notes.md",
     "conversation.log",
     "usage.json",
+    "routines.json",
+    "skills.json",
+    "tasks.json",
+    "contacts.json",
+    "expenses.json",
+    "shopping.json",
+    "habits.json",
+    "health.json",
+    "journal.json",
 ]
 
 

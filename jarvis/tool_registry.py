@@ -58,6 +58,10 @@ from .tools import maps as t_maps
 from .tools import habits as t_habits
 from .tools import health as t_health
 from .tools import journal as t_journal
+from .tools import voice_memo as t_memo
+from .tools import image_edit as t_imgedit
+from .tools import pdf_tools as t_pdf
+from .tools import organize as t_organize
 from .plugins_loader import load_plugins, reserved_names_check
 from . import settings as _settings
 
@@ -542,6 +546,27 @@ TOOLS: list[dict] = [
           {"text": {"type": "string"}}, ["text"]),
     _tool("read_journal", "Read journal entries: 'recent', 'today', or a date YYYY-MM-DD.",
           {"when": {"type": "string"}, "count": {"type": "integer"}}),
+
+    # ===== v20: media & file utilities =====
+    _tool("record_voice_memo",
+          "Record a voice memo for N seconds, save it to Desktop, and transcribe it.",
+          {"seconds": {"type": "integer"}, "transcribe": {"type": "boolean"}}),
+    _tool("resize_image", "Resize an image (give width and/or height; keeps aspect if one).",
+          {"path": {"type": "string"}, "width": {"type": "integer"}, "height": {"type": "integer"}},
+          ["path"]),
+    _tool("convert_image", "Convert an image to another format (png/jpg/webp/bmp/gif).",
+          {"path": {"type": "string"}, "to_format": {"type": "string"}}, ["path"]),
+    _tool("rotate_image", "Rotate an image by degrees (clockwise).",
+          {"path": {"type": "string"}, "degrees": {"type": "integer"}}, ["path"]),
+    _tool("merge_pdfs", "Merge multiple PDF files (in order) into one.",
+          {"paths": {"type": "array"}, "output": {"type": "string"}}, ["paths"]),
+    _tool("split_pdf", "Split a PDF into pages, or by ranges like '1-3,4-6'.",
+          {"path": {"type": "string"}, "ranges": {"type": "string"}}, ["path"]),
+    _tool("pdf_info", "Get page count + metadata of a PDF.", {"path": {"type": "string"}}, ["path"]),
+    _tool("organize_folder",
+          "Sort loose files in a folder into category subfolders (Images/Documents/Videos/...). "
+          "Set dry_run true to preview the plan first.",
+          {"folder": {"type": "string"}, "dry_run": {"type": "boolean"}}, ["folder"]),
 ]
 
 TOOL_HANDLERS: dict[str, Any] = {
@@ -739,6 +764,19 @@ TOOL_HANDLERS: dict[str, Any] = {
     "health_summary": lambda i: t_health.health_summary(i.get("period", "today")),
     "add_journal_entry": lambda i: t_journal.add_journal_entry(i["text"]),
     "read_journal": lambda i: t_journal.read_journal(i.get("when", "recent"), _int(i.get("count"), 5)),
+    # v20 — media & file utilities
+    "record_voice_memo": lambda i: t_memo.record_voice_memo(
+        _int(i.get("seconds"), 15), bool(i.get("transcribe", True))
+    ),
+    "resize_image": lambda i: t_imgedit.resize_image(
+        i["path"], _int(i.get("width"), 0), _int(i.get("height"), 0)
+    ),
+    "convert_image": lambda i: t_imgedit.convert_image(i["path"], i.get("to_format", "png")),
+    "rotate_image": lambda i: t_imgedit.rotate_image(i["path"], _int(i.get("degrees"), 90)),
+    "merge_pdfs": lambda i: t_pdf.merge_pdfs(i.get("paths") or [], i.get("output", "")),
+    "split_pdf": lambda i: t_pdf.split_pdf(i["path"], i.get("ranges", "")),
+    "pdf_info": lambda i: t_pdf.pdf_info(i["path"]),
+    "organize_folder": lambda i: t_organize.organize_folder(i["folder"], bool(i.get("dry_run", False))),
 }
 
 

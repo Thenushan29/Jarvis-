@@ -1,230 +1,182 @@
-# Jarvis — Bilingual Voice Assistant (Tamil + English)
+# Jarvis — Personal AI Voice Assistant (Tamil + English)
 
-A personal AI voice agent for Windows. Wake word, speech-to-text, configurable LLM brain
-with tool calling, text-to-speech. **Bring your own API key** — works with Groq, OpenAI, Claude,
-Gemini, OpenRouter, Together, local Ollama, or any OpenAI-compatible endpoint.
+A powerful, fully-featured AI assistant for Windows. Talks in **Tamil and English**,
+controls your whole PC, browses the web, manages your files & schedule, and can even
+**operate your screen and write its own tools**.
 
-**Two ways to run:**
-- **GUI desktop app** — system tray icon, settings dialog, status window: `python jarvis_app.py`
-- **CLI** — `python run.py text | voice | wake`
+**107 built-in tools. 8 LLM providers. Bring your own API key.**
 
 ---
 
-## 🚀 Quick start (after cloning)
+## 🚀 Quick start (new users)
 
-### 1. Clone & enter the folder
-
+### 1. Clone
 ```powershell
 git clone https://github.com/Thenushan29/Jarvis-.git
 cd Jarvis-
 ```
 
-### 2. Requirements
+### 2. Get a free API key
+Pick any provider — **Groq is free and fast** (recommended to start):
+- Groq → https://console.groq.com/keys  (free, no card)
+- Or: OpenAI, Anthropic Claude, Google Gemini, OpenRouter, Together, or local **Ollama**
 
-- **Windows 10/11**
-- **Python 3.11 or 3.12** recommended (3.13 works but some wheels are still rolling out)
-- **Google Chrome** (only if you want WhatsApp Web features)
-- A working **microphone** and **speakers/headphones**
-- Internet (for first-run model downloads + Groq API)
-
-### 3. Get a free Groq API key (no credit card)
-
-1. Go to https://console.groq.com/keys
-2. Sign up (Google login works)
-3. Click **Create API Key** → copy it (starts with `gsk_...`)
-
-> Wake word ("Hey Jarvis") uses **openWakeWord** which is fully local — no second account needed.
-
-### 4. Install Python packages
-
+### 3. Install
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
+> Requires **Python 3.11+** (3.12/3.13 work). First run downloads small voice models.
 
-If PowerShell blocks the activate script, run this once:
+### 4. Run
 ```powershell
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+python jarvis_app.py     # Desktop GUI (recommended) — first-run setup wizard
 ```
-
-### 5. Configure `.env`
-
+or use the CLI:
 ```powershell
-Copy-Item .env.example .env
-notepad .env
+python run.py text       # type commands, no mic (best first test)
+python run.py voice      # press ENTER, then speak
+python run.py wake       # always-on "Hey Jarvis"
 ```
 
-Replace `your_groq_api_key_here` with your actual key. Save, close.
+### 5. First-run wizard (GUI)
+1. Pick provider → paste your API key → **Test connection** ✅
+2. **Voice tab** → choose a voice (default is a deep British "J.A.R.V.I.S.") → ▶ Preview
+3. Save → you'll hear *"Good evening. I am Jarvis. At your service."*
 
-### 6. Run him
-
-**Option A — Desktop GUI (recommended):**
-```powershell
-python jarvis_app.py
-```
-First run shows a setup wizard → pick provider, paste your key, test, save. Then main window
-opens with status, start/stop, settings, and a tray icon.
-
-**Option B — CLI (three modes):**
-```powershell
-python run.py text   # type commands, no mic needed (best first test)
-python run.py voice  # press ENTER, then speak
-python run.py wake   # always-on "Hey Jarvis" wake word
-```
-
-In text mode, type:
-```
-What time is it?
-Open YouTube
-Remember my favorite food is dosa
-quit
-```
-
-### Build a single .exe (optional)
-
-```powershell
-.\build_exe.ps1
-```
-Outputs `dist\Jarvis\Jarvis.exe` — ship the folder to anyone, no Python needed on their side.
+That's it. Everything works immediately except features needing a one-time login
+(Gmail / Calendar / WhatsApp — see [Optional setup](#-optional-setup)).
 
 ---
 
-## 🧠 What Jarvis can do
+## 🎯 What Jarvis can do
 
-### Voice & system
-- **Wake on "Hey Jarvis"** — fully local, ~30 MB model cached
-- **Open apps & websites** — Chrome, YouTube, WhatsApp, VS Code, Spotify, anything
-- **PC control** — volume, mute, lock, sleep, shutdown, screenshot
-- **Media keys** — play/pause/next/prev for Spotify, YouTube, etc.
-- **Reminders** — "Remind me to call amma tomorrow at 9am" (voice alert when due)
+### 🗣️ Talk
+- Wake word **"Hey Jarvis"**, global hotkey **Ctrl+Alt+J**, or type
+- **Tamil + English** auto-detected each turn
+- 10 voice presets (incl. Iron Man Jarvis, Indian, British, American)
+- 5 personalities: *"be more casual / concise / witty / professional"*
 
-### Code & shell
-- **Read & write files** — "Open my python file and add a function that…"
-- **Run PowerShell** — with a destructive-command blocklist
-- **List directories** — "What files are in my Desktop?"
+### 🖥️ Control your PC
+- Open **any** installed app (Start-menu + Microsoft Store, fuzzy-matched)
+- Volume, mute, lock, sleep, shutdown, screenshot, media keys
+- **Type, click, hotkeys, scroll** — operate any app's UI
+- Window management (focus / minimize / maximize / close)
+- System health (CPU / RAM / disk / battery / uptime), kill processes
+- Network info (local + public IP, WiFi, connectivity)
 
-### Apps & install
-- **Install any app via winget** — "Install Spotify" → confirms → installs
-- **Search winget catalog**
+### 📂 Files & data
+- Find files by name or content; copy / move / rename / delete (→ Recycle Bin)
+- Read & write code, run PowerShell (safety-blocklisted) + sandboxed Python
+- **Spreadsheet Q&A** (CSV/Excel), **Document Q&A** (PDF/text)
+- **Knowledge base** — index a folder, ask questions across all docs
 
-### Web, mail, messages
-- **Web search & YouTube** — "Search for lofi" / "Play music on YouTube"
-- **Read Gmail** (after OAuth setup) — "Any unread emails?"
-- **Send Gmail** — confirms recipient + body before sending
-- **WhatsApp Web** — read recent chats, read messages, send
+### ⏰ Stay organized
+- Reminders (recurring + proactive "in 10 min" heads-up), notes, clipboard
+- **Long-term memory** — auto-remembers facts about you
+- Daily briefing, timers
+- **Scheduled routines** — autonomous recurring tasks (e.g. morning brief)
 
-### Memory & vision
-- **Long-term memory** — "Remember my work hours are 10 to 6" / "What's my amma's number?"
-- **Screen vision** — "Hey Jarvis, what's on my screen?"
+### 🌐 Information
+- Real web search, fetch + summarize any URL, **deep research** (multi-source)
+- News, weather, stock prices, cricket scores
+- Currency + unit conversion, translate (any language)
+
+### 📧 Communication
+- **Gmail** — read / search / send / draft replies
+- **WhatsApp** — read chats, send messages
+- **Google Calendar** — view + add events
+
+### 🎨 Create & see
+- **Generate images** from a prompt (saves to Desktop)
+- **OCR** — extract text from screen or image
+- **Screen vision** — *"what's on my screen?"*
+
+### 🤖 Agentic (the powerful part)
+- **Autonomous agent** — *"do this whole multi-step task"* (plans + executes)
+- **Computer-use** — sees the screen, clicks, types, re-checks, repeats until done
+- **Self-extension** — *writes its own new tools* on request and loads them live
+- **Plugins** — drop a `.py` into `plugins/` to add tools (see `plugins/README.md`)
 
 ---
 
-## 🔧 Tech stack
+## 🔌 Optional setup
 
-| Layer | Tech | Notes |
-|---|---|---|
-| Wake word | openWakeWord (`hey_jarvis_v0.1.onnx`) | Fully local |
-| STT | `faster-whisper` | Tamil + English auto-detect |
-| TTS | `edge-tts` (Microsoft neural voices) | Free, has Tamil voices |
-| Brain | Groq `llama-3.3-70b-versatile` | Free tier, fast |
-| Vision | Groq `llama-4-scout-17b-16e-instruct` | Multimodal Llama 4 |
-| Wake mic | `sounddevice` | int16 @ 16 kHz |
-| WhatsApp | `selenium` + persistent Chrome profile | One-time QR scan |
-| Gmail | `google-api-python-client` | OAuth 2.0 |
-
----
-
-## 🔌 Optional setup per feature
-
-### Gmail (if you want email features)
-
-1. https://console.cloud.google.com/ → create a project (free)
-2. **APIs & Services → Library** → search "Gmail API" → **Enable**
-3. **OAuth consent screen** → External → fill app name + your email → add yourself as a **Test user**
-4. **Credentials → Create Credentials → OAuth client ID** → **Desktop app** → download JSON
-5. Save it as `data/gmail_credentials.json` in this folder
-6. First time Jarvis uses Gmail, browser opens — grant access → token cached at `data/gmail_token.json`
+### Gmail + Calendar (Google)
+1. https://console.cloud.google.com/ → new project (free)
+2. Enable **Gmail API** + **Google Calendar API**
+3. OAuth consent screen → External → add yourself as a **Test user**
+4. Credentials → OAuth client ID → **Desktop app** → download JSON
+5. Save it as `data/gmail_credentials.json`
+6. First use opens a browser to grant access (token cached after)
 
 ### WhatsApp Web
+1. Have **Google Chrome** installed
+2. First WhatsApp command opens web.whatsapp.com → scan the QR with your phone
+3. Session is saved in `data/wa_chrome_profile/` (one-time)
 
-1. Make sure **Google Chrome** is installed (https://google.com/chrome)
-2. First time you say "send WhatsApp" or "read WhatsApp", Chrome opens to https://web.whatsapp.com
-3. On your phone: **WhatsApp → ⋮ → Linked Devices → Link a device → scan QR**
-4. Done — session saved at `data/wa_chrome_profile/`
-
-> To log out: delete `data/wa_chrome_profile/`.
-
----
-
-## 🗣️ Example things to say
-
-### English
-- "Hey Jarvis, open YouTube and search for lofi music."
-- "Remind me to submit the report tomorrow at 10am."
-- "Read C colon backslash users backslash me backslash Desktop backslash todo dot txt."
-- "Install VS Code."
-- "What's on my screen?"
-- "Check my unread emails."
-- "Read the last 5 messages from Amma on WhatsApp."
-- "Send a WhatsApp to Amma saying I'll be home by 7."
-- "Remember my birthday is March 15."
-- "Play music." / "Pause." / "Next song."
-
-### Tamil
-- "Hey Jarvis, YouTube-la lofi music podu."
-- "Naalaiku kaalaila 9 mani-ku amma-ku phone pannanum nu nyabagam padutha."
-- "Time enna sollu."
-- "En screen-la enna irukku paaru."
+### Local OCR (optional)
+Install Tesseract + `pip install pytesseract` for fast local OCR. Otherwise Jarvis
+falls back to LLM vision automatically.
 
 ---
 
-## 📁 Project layout
+## 🧠 Choosing a provider
 
+Set in the GUI (Settings → Brain) or in `.env`:
+
+```env
+LLM_PROVIDER=groq          # groq | openai | anthropic | gemini | openrouter | ollama | together
+LLM_API_KEY=your_key_here
+# LLM_MODEL=               # optional — defaults are sensible per provider
 ```
-Jarvis/
-├── run.py                  entry point — three modes (text/voice/wake)
-├── mic_check.py            standalone diagnostic for mic + wake word
-├── requirements.txt
-├── .env.example            template — copy to .env, add your key
-├── data/                   (gitignored — local secrets and state)
-│   ├── reminders.json
-│   ├── memory.json
-│   ├── conversation.log
-│   ├── gmail_credentials.json   (place yours here)
-│   ├── gmail_token.json    (auto)
-│   └── wa_chrome_profile/  (auto)
-└── jarvis/
-    ├── config.py
-    ├── brain.py            Groq brain + tool-calling loop
-    ├── conversation_log.py
-    ├── voice/
-    │   ├── wake.py         openWakeWord ("hey_jarvis")
-    │   ├── listen.py       faster-whisper STT (auto language)
-    │   └── speak.py        Edge TTS (bilingual voices)
-    └── tools/
-        ├── apps.py         open apps, websites, searches
-        ├── system.py       volume, lock, sleep, screenshot, media keys
-        ├── reminders.py    persistent reminders + scheduler thread
-        ├── memory.py       long-term fact storage
-        ├── code.py         file ops + shell (with safety blocklist)
-        ├── winget.py       install / uninstall / search apps
-        ├── vision.py       screenshot + Llama 4 Scout vision
-        ├── whatsapp.py     WhatsApp Web automation (read + send)
-        └── gmail.py        Gmail read / search / send
-```
+
+| Provider | Free? | Notes |
+|---|---|---|
+| **Groq** | ✅ free tier | Fast; default Llama 3.3 70B |
+| **Gemini** | ✅ free tier | Good Tamil |
+| **Ollama** | ✅ local | No internet, no key — runs on your PC |
+| OpenAI / Anthropic / OpenRouter / Together | 💳 paid | GPT-4o, Claude, etc. |
+
+---
+
+## 🧩 Tech stack
+
+| Layer | Tech |
+|---|---|
+| Brain | Any of 8 LLM providers (OpenAI-compatible + Anthropic) |
+| Wake word | openWakeWord ("hey_jarvis", local) |
+| Speech-to-text | faster-whisper (Tamil + English) |
+| Text-to-speech | Edge TTS (free neural voices) |
+| Vision | Multimodal LLM (Llama 4 Scout / GPT-4o / Claude) |
+| Automation | pyautogui + pygetwindow |
+| GUI | PySide6 (tray + window + settings) |
+
+---
+
+## 🖥️ Run modes
+
+| Command | Mode |
+|---|---|
+| `python jarvis_app.py` | GUI desktop app + system tray |
+| `python run.py text` | Type commands (no mic) |
+| `python run.py voice` | Press ENTER to talk |
+| `python run.py wake` | Always-on "Hey Jarvis" |
+
+Build a standalone `.exe`: `.\build_exe.ps1` → `dist\Jarvis\Jarvis.exe`
 
 ---
 
 ## 🛡️ Safety
 
-- **Destructive actions** (shutdown, sleep, send WhatsApp/email, install/uninstall apps, run shell)
-  require verbal confirmation in the system prompt.
-- **Shell blocklist** at the tool level: refuses `Remove-Item -Recurse -Force`, `Format-Volume`,
-  `rm -rf /`, fork bombs, `iex (irm | iex)` malware patterns, auto-elevation, etc.
-- **Mic is local-only for wake word**: Porcupine/openWakeWord processes audio entirely on-device.
-  Nothing leaves your PC until you actually talk after the wake word.
-- **Logs**: every voice turn (user + Jarvis) is written to `data/conversation.log` for transparency.
+- Destructive actions (shutdown, delete, send email/WhatsApp, uninstall, kill process)
+  require **verbal confirmation**.
+- Shell commands are screened by a **blocklist** (refuses `Remove-Item -Recurse`,
+  `Format-Volume`, fork bombs, `iex (irm | iex)`, etc.).
+- Self-written plugins are sandbox-validated (no `os.system` / `subprocess` / file deletion).
+- Wake-word audio is processed **locally** — nothing leaves your PC until you talk.
+- Every turn is logged to `data/conversation.log`.
 
 ---
 
@@ -232,30 +184,36 @@ Jarvis/
 
 | Problem | Fix |
 |---|---|
-| `No module named X` | Activate the venv: `.\.venv\Scripts\Activate.ps1` |
-| Mic not capturing | Windows Settings → Privacy → Microphone → on |
-| Wake word never triggers | Run `python mic_check.py` to see live scores. Lower `DETECTION_THRESHOLD` in [jarvis/voice/wake.py](jarvis/voice/wake.py) |
-| Whisper download slow | Set `WHISPER_MODEL=tiny` in `.env` (~39 MB vs ~500 MB) |
-| Tamil voice sounds robotic | Try `TTS_VOICE_TAMIL=ta-IN-PallaviNeural` in `.env` |
-| Gmail token expired | Delete `data/gmail_token.json` → re-auth on next run |
-| WhatsApp selectors broken | WhatsApp Web's HTML changed — update selectors in [jarvis/tools/whatsapp.py](jarvis/tools/whatsapp.py) `_S` class |
-| Pygame mixer fails | Set a default audio output in Windows Sound settings |
-| `Refusing dangerous command` | Working as intended — Jarvis blocked a risky shell command |
+| `No module named X` | Activate venv: `.\.venv\Scripts\Activate.ps1` |
+| Mic not working | Windows Settings → Privacy → Microphone → on |
+| Wake word won't trigger | Run `python mic_check.py`; lower `DETECTION_THRESHOLD` in `jarvis/voice/wake.py` |
+| Whisper slow | Set `WHISPER_MODEL=tiny` in `.env` |
+| Rate limited (Groq) | Free tier has a daily token cap; wait or switch provider |
+| Run validation | `python test_all.py` (full feature test) or `python audit.py` |
 
 ---
 
-## 🛣️ Roadmap
+## 📁 Project layout
 
-- [ ] Settings GUI (PySide6) so users don't edit `.env` manually
-- [ ] Multi-provider brain (OpenAI / Claude / Gemini / Ollama in addition to Groq)
-- [ ] System tray icon (always-on, right-click menu)
-- [ ] PyInstaller bundle → single `Jarvis.exe` installer
-- [ ] Recurring reminders ("every Monday at 9am")
-- [ ] Google Calendar sync
-- [ ] Custom wake word training
+```
+Jarvis/
+├── jarvis_app.py          GUI entry (window + tray + wizard)
+├── run.py                 CLI entry (text / voice / wake)
+├── test_all.py            full feature test harness
+├── audit.py               validation battery
+├── jarvis/
+│   ├── brain.py           LLM brain + 107-tool registry
+│   ├── agent.py           autonomous multi-step agent
+│   ├── routines.py        scheduled autonomous routines
+│   ├── llm/               provider adapters (openai-compat + anthropic)
+│   ├── voice/             wake word, STT, TTS, voice presets
+│   ├── gui/               window, settings, tray, waveform, worker
+│   └── tools/             ~40 tool modules (apps, files, web, vision, ...)
+└── plugins/               drop-in user plugins (auto-loaded)
+```
 
 ---
 
 ## 📝 License
 
-Personal project. Use, fork, modify freely.
+Personal project by **Thenushan**. Use, fork, and modify freely.

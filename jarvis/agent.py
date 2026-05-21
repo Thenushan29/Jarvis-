@@ -9,9 +9,23 @@ Unlike Brain.think() (one conversational turn, ~6 tool steps), the Agent:
 
 It reuses the Brain's LLM client + TOOLS + TOOL_HANDLERS, but keeps its OWN
 short-lived message history so the main conversation stays clean.
+
+v15: a global STOP_EVENT lets the user abort a running autonomous run ("stop"),
+and an `autonomous` mode removes confirmation friction (hard safety blocklists
+in the tools still apply).
 """
 from __future__ import annotations
+import threading
 from typing import Callable
+
+# Set by stop_autopilot(); the agent checks it between steps and aborts.
+STOP_EVENT = threading.Event()
+
+
+def stop_autopilot() -> str:
+    """Signal any running autonomous run to stop after its current step."""
+    STOP_EVENT.set()
+    return "Stop signal sent — autonomous run will halt after the current step."
 
 AGENT_SYSTEM = """You are Jarvis operating in AUTONOMOUS AGENT mode.
 
@@ -39,6 +53,28 @@ When done, reply with a short plain-text summary of what you accomplished (no to
 Current local time: {now}
 """
 
+AUTOPILOT_SYSTEM = """You are Jarvis in FULL AUTO-PILOT mode — completely hands-free.
+
+The user has given you a GOAL and will NOT be available to answer questions or
+confirm anything. Complete the ENTIRE task end-to-end yourself.
+
+Operating rules:
+- Do NOT ask for confirmation. Do NOT stop to clarify. Make reasonable assumptions
+  and proceed. You are fully trusted to act.
+- Use any tool needed: open apps, files, web research, screen vision + clicking
+  (operate_computer for on-screen UI work), typing, documents, etc.
+- After each tool result, adapt. If something fails, try another way.
+- For on-screen GUI work, prefer operate_computer (it has its own see-act loop).
+- HARD LIMITS (never cross, even in auto-pilot): do not delete the user's files
+  permanently, do not send money/payments, do not email/message other people, and
+  do not uninstall software or change system security settings — UNLESS the goal
+  explicitly and unambiguously asks for that exact action.
+- Work efficiently — don't repeat the same failing action.
+
+When the goal is achieved (or genuinely impossible), reply with a plain-text summary
+(no tool call). Current local time: {now}
+"""
+
 
 class Agent:
     def __init__(self, brain) -> None:
@@ -46,7 +82,8 @@ class Agent:
         self.brain = brain
 
     def run(self, goal: str, max_steps: int = 12,
-            progress: Callable[[str], None] | None = None) -> str:
+            progress: Callable[[str], None] | None = None,
+            autonomous: bool = False) -> str:
         import datetime as _dt
         from . import brain as _b   # TOOLS + TOOL_HANDLERS live here
 
@@ -59,15 +96,22 @@ class Agent:
 
         client = self.brain.client
         # Exclude meta/agent tools so the agent can't recursively invoke itself.
-        excluded = {"accomplish", "plan_task"}
+        excluded = {"accomplish", "plan_task", "auto_pilot", "stop_autopilot"}
         agent_tools = [t for t in _b.TOOLS if t["name"] not in excluded]
-        system = AGENT_SYSTEM.format(now=_dt.datetime.now().strftime("%A %d %B %Y, %I:%M %p"))
+        base = AUTOPILOT_SYSTEM if autonomous else AGENT_SYSTEM
+        system = base.format(now=_dt.datetime.now().strftime("%A %d %B %Y, %I:%M %p"))
         history = [client.make_user_message(f"GOAL: {goal}")]
 
+        if autonomous:
+            STOP_EVENT.clear()
         emit(f"[agent] starting: {goal}")
         steps_taken = 0
         try:
             for step in range(max_steps):
+                if STOP_EVENT.is_set():
+                    STOP_EVENT.clear()
+                    emit("[agent] stopped by user")
+                    return "Autonomous run stopped by user."
                 response = client.chat(system, history, agent_tools)
                 history.append(client.make_assistant_message(response))
 
@@ -111,4 +155,15 @@ def accomplish(goal: str, max_steps: int = 12) -> str:
     # A lightweight brain instance reuses the configured client + tool registry.
     agent = Agent(Brain())
     return agent.run(goal, max_steps=max_steps,
+                     progress=lambda m: print(m))
+
+
+def auto_pilot(goal: str, max_steps: int = 20) -> str:
+    """FULL hands-free mode — completes the whole task with no confirmations.
+
+    Higher step budget than accomplish(); uses the full toolset including
+    computer-use. Abort anytime with stop_autopilot() (or say 'stop')."""
+    from .brain import Brain
+    agent = Agent(Brain())
+    return agent.run(goal, max_steps=max_steps, autonomous=True,
                      progress=lambda m: print(m))

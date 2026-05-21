@@ -376,6 +376,13 @@ TOOLS: list[dict] = [
           "Produce a step-by-step plan for a goal WITHOUT executing it. Use when the user asks "
           "'how would you do X' or wants to review a plan first.",
           {"goal": {"type": "string"}}, ["goal"]),
+    _tool("auto_pilot",
+          "FULL HANDS-FREE mode: complete an entire complex task autonomously with NO further "
+          "confirmation — plans, executes many tools (incl. screen control), self-corrects, and "
+          "only reports at the end. Use when the user says 'do it all yourself', 'fully automatic', "
+          "or gives a big task and won't be available. Hard safety limits still apply.",
+          {"goal": {"type": "string"}, "max_steps": {"type": "integer"}}, ["goal"]),
+    _tool("stop_autopilot", "Abort a running auto-pilot / autonomous run.", {}),
 
     # ===== v11: scheduled autonomous routines =====
     _tool("create_routine",
@@ -618,6 +625,10 @@ TOOL_HANDLERS: dict[str, Any] = {
         i["goal"], _int(i.get("max_steps"), 12)
     ),
     "plan_task": lambda i: t_planner.plan_task(i["goal"]),
+    "auto_pilot": lambda i: __import__("jarvis.agent", fromlist=["auto_pilot"]).auto_pilot(
+        i["goal"], _int(i.get("max_steps"), 20)
+    ),
+    "stop_autopilot": lambda i: __import__("jarvis.agent", fromlist=["stop_autopilot"]).stop_autopilot(),
     # v11 — routines
     "create_routine": lambda i: t_routines.create_routine(
         i["name"], i["goal"], i.get("schedule_type", "daily"),

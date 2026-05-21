@@ -81,10 +81,11 @@ def make_dir(path: str) -> str:
 def delete_file(path: str, permanent: bool = False) -> str:
     """Delete a file. By default, sends to Recycle Bin (reversible)."""
     p = _abs(path)
-    if not p.exists():
-        return f"Path not found: {p}"
+    # Protected-location check FIRST — refuse regardless of whether it exists.
     if _is_protected(p):
         return f"Refusing to delete protected location: {p}"
+    if not p.exists():
+        return f"Path not found: {p}"
     if not permanent:
         try:
             from send2trash import send2trash

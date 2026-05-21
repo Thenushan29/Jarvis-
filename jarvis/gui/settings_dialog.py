@@ -124,6 +124,32 @@ class SettingsDialog(QDialog):
         test_row.addWidget(self.test_status, 1)
         layout.addLayout(test_row)
 
+        # Fallback provider (resilience)
+        fb_group = QGroupBox("Fallback provider (optional — used if the primary rate-limits)")
+        fb_form = QFormLayout(fb_group)
+        self.fb_provider_combo = QComboBox()
+        self.fb_provider_combo.addItem("(none)", userData="")
+        for info in PROVIDER_INFO:
+            self.fb_provider_combo.addItem(info["label"], userData=info["id"])
+        cur_fb = s.get("llm_fallback_provider", "")
+        for i in range(self.fb_provider_combo.count()):
+            if self.fb_provider_combo.itemData(i) == cur_fb:
+                self.fb_provider_combo.setCurrentIndex(i); break
+        fb_form.addRow("Fallback provider:", self.fb_provider_combo)
+        self.fb_key_edit = QLineEdit(s.get("llm_fallback_api_key", ""))
+        self.fb_key_edit.setEchoMode(QLineEdit.Password)
+        self.fb_key_edit.setPlaceholderText("Fallback API key (e.g. a free Gemini key)")
+        fb_form.addRow("Fallback key:", self.fb_key_edit)
+        self.fb_model_edit = QLineEdit(s.get("llm_fallback_model", ""))
+        self.fb_model_edit.setPlaceholderText("(leave blank for provider default)")
+        fb_form.addRow("Fallback model:", self.fb_model_edit)
+        fb_hint = QLabel("<small>Tip: primary <b>Groq</b> + fallback <b>Gemini</b> (both free) "
+                         "means Jarvis never goes down when one hits its daily limit. "
+                         "Must be the same API family as the primary.</small>")
+        fb_hint.setWordWrap(True); fb_hint.setStyleSheet("color:#666;")
+        fb_form.addRow(fb_hint)
+        layout.addWidget(fb_group)
+
         layout.addStretch(1)
 
         self.provider_combo.currentIndexChanged.connect(self._on_provider_changed)
@@ -225,6 +251,10 @@ class SettingsDialog(QDialog):
         self.ptt_edit = QLineEdit(s.get("ptt_hotkey", "ctrl+alt+j"))
         self.ptt_edit.setPlaceholderText("e.g. ctrl+alt+j  or  ctrl+shift+space")
         sys_layout.addRow("Hotkey:", self.ptt_edit)
+
+        self.routing_check = QCheckBox("Smart tool routing (faster + fewer tokens per request)")
+        self.routing_check.setChecked(bool(s.get("tool_routing", True)))
+        sys_layout.addRow(self.routing_check)
 
         layout.addWidget(sys_group)
 
@@ -467,6 +497,10 @@ class SettingsDialog(QDialog):
             "ptt_hotkey": self.ptt_edit.text().strip() or "ctrl+alt+j",
             "personality": self.personality_combo.currentData() or "jarvis",
             "proactive_lead_minutes": self._safe_int(self.proactive_edit.text(), 10),
+            "llm_fallback_provider": self.fb_provider_combo.currentData() or "",
+            "llm_fallback_api_key": self.fb_key_edit.text().strip(),
+            "llm_fallback_model": self.fb_model_edit.text().strip(),
+            "tool_routing": self.routing_check.isChecked(),
         })
         # Apply auto-start immediately so user sees it work.
         try:

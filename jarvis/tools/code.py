@@ -36,9 +36,14 @@ DANGEROUS_PATTERNS = [
     r"\bstop-computer\b",
     r"\brestart-computer\b",
     r"set-executionpolicy\s+unrestricted",
-    r"invoke-expression\s+\(.*downloadstring",   # iex (irm/iwr ... | iex) common malware pattern
-    r"iex\s*\(.*downloadstring",
-    r"start-process.*-verb\s+runas",          # auto-elevation
+    # Remote-code-execution one-liners — block iex/invoke-expression of any
+    # subexpression or web fetch (the classic `iex (irm url)` / `iex (iwr url)` /
+    # `iex (...DownloadString...)` malware shape).
+    r"\biex\s*\(",
+    r"invoke-expression\s*\(",
+    r"downloadstring",
+    r"\bi(rm|wr)\b.*\|\s*iex",                 # irm/iwr ... | iex
+    r"start-process.*-verb\s+runas",           # auto-elevation
 ]
 
 

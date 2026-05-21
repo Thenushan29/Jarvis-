@@ -43,6 +43,9 @@ from .tools import vision_click as t_vclick
 from .tools import email_draft as t_edraft
 from .tools import planner as t_planner
 from . import routines as t_routines
+from .tools import system_monitor as t_sysmon
+from .tools import network as t_net
+from .tools import spreadsheet as t_sheet
 from .plugins_loader import load_plugins, reserved_names_check
 from .personality import get_guidance as _personality_guidance
 from . import settings as _settings
@@ -382,6 +385,20 @@ TOOLS: list[dict] = [
     _tool("run_routine_now", "Run a saved routine immediately (autonomously).",
           {"name": {"type": "string"}}, ["name"]),
 
+    # ===== v12: system / network / data =====
+    _tool("system_info", "Get a PC health snapshot: CPU, RAM, disk, battery, uptime.", {}),
+    _tool("top_processes", "List the top processes by 'memory' or 'cpu' usage.",
+          {"n": {"type": "integer"}, "by": {"type": "string"}}),
+    _tool("find_process", "Find running processes matching a name.",
+          {"name": {"type": "string"}}, ["name"]),
+    _tool("kill_process", "Terminate processes matching a name. Destructive — confirm first.",
+          {"name": {"type": "string"}}, ["name"]),
+    _tool("network_info", "Full network summary: connectivity, local IP, public IP, WiFi.", {}),
+    _tool("check_internet", "Quick check whether the internet is reachable + latency.", {}),
+    _tool("analyze_spreadsheet",
+          "Read a CSV or Excel file and answer a question about the data (or summarize it).",
+          {"path": {"type": "string"}, "question": {"type": "string"}}, ["path"]),
+
     # --- notes ---
     _tool("add_note",
           "Save a quick note to the user's notes file. Use when the user says "
@@ -561,6 +578,14 @@ TOOL_HANDLERS: dict[str, Any] = {
     "list_routines": lambda i: t_routines.list_routines(),
     "delete_routine": lambda i: t_routines.delete_routine(i["name"]),
     "run_routine_now": lambda i: t_routines.run_routine_now(i["name"]),
+    # v12 — system / network / data
+    "system_info": lambda i: t_sysmon.system_info(),
+    "top_processes": lambda i: t_sysmon.top_processes(_int(i.get("n"), 5), i.get("by", "memory")),
+    "find_process": lambda i: t_sysmon.find_process(i["name"]),
+    "kill_process": lambda i: t_sysmon.kill_process(i["name"]),
+    "network_info": lambda i: t_net.network_info(),
+    "check_internet": lambda i: t_net.check_internet(),
+    "analyze_spreadsheet": lambda i: t_sheet.analyze_spreadsheet(i["path"], i.get("question", "")),
 }
 
 

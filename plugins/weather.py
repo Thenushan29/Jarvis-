@@ -24,6 +24,16 @@ def _wttr(location: str, fmt: str) -> str:
         return f"Could not fetch weather: {e}"
 
 
+try:
+    from jarvis.cache import ttl_cache
+except Exception:
+    def ttl_cache(seconds=120):
+        def deco(fn):
+            return fn
+        return deco
+
+
+@ttl_cache(seconds=600)
 def get_weather_handler(args: dict) -> str:
     """Return current conditions + tomorrow + day-after, voice-friendly."""
     location = args.get("location", "auto")

@@ -61,6 +61,10 @@ def _google_news(topic: str, limit: int = 5) -> list[dict]:
         return [{"title": f"(Google News fetch failed: {e})", "url": "", "description": ""}]
 
 
+from ..cache import ttl_cache
+
+
+@ttl_cache(seconds=300)
 def news_briefing(topic: str = "", count: int = 5) -> str:
     """Return a short news briefing. If `topic` is given, focus on that; else mix HN + general."""
     count = max(1, min(int(count or 5), 10))

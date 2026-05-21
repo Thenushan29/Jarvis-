@@ -89,12 +89,22 @@ What you already remember about the user:
 
 
 def _tool(name: str, description: str, properties: dict, required: list | None = None) -> dict:
-    # Strip 'default' from property declarations — Python handlers already use
-    # .get(key, default), and including JSON-Schema 'default' makes some models
-    # (notably Llama via Groq) wrap integer args as strings (e.g. "25" instead of 25),
-    # which Groq's strict schema validator then rejects.
-    cleaned_props = {k: {kk: vv for kk, vv in v.items() if kk != "default"}
-                     for k, v in properties.items()}
+    # Two robustness fixes for strict tool-call validators (Groq/Llama):
+    #  1. Strip JSON-Schema 'default' — its presence makes some models emit
+    #     numbers as strings, which then fail validation.
+    #  2. Declare integer/number params as 'string' in the SCHEMA. Models reliably
+    #     emit strings; our handlers already coerce via _int()/float(). This avoids
+    #     "expected number, but got string" 400s entirely. (A note is added to the
+    #     param description so the model still knows it's numeric.)
+    cleaned_props = {}
+    for k, v in properties.items():
+        prop = {kk: vv for kk, vv in v.items() if kk != "default"}
+        if prop.get("type") in ("integer", "number"):
+            kind = prop["type"]
+            prop["type"] = "string"
+            desc = prop.get("description", "")
+            prop["description"] = (desc + f" ({kind} value as a string)").strip()
+        cleaned_props[k] = prop
     params: dict = {"type": "object", "properties": cleaned_props}
     if required:
         params["required"] = required
@@ -755,24 +765,51 @@ class Brain:
     def reset(self) -> None:
         self.history = []
 
+    def _exec_calls(self, tool_calls, lang: str) -> list[tuple[str, str]]:
+        """Execute tool calls. Runs in parallel when there's more than one (I/O-bound)."""
+        if len(tool_calls) == 1:
+            tc = tool_calls[0]
+            result = self._exec_tool(tc.name, tc.arguments, lang)
+            print(f"[tool] {tc.name}({tc.arguments}) -> {str(result)[:200]}")
+            return [(tc.id, str(result))]
+
+        from concurrent.futures import ThreadPoolExecutor
+        results: list[tuple[str, str]] = [None] * len(tool_calls)
+
+        def _one(idx_tc):
+            idx, tc = idx_tc
+            r = self._exec_tool(tc.name, tc.arguments, lang)
+            print(f"[tool//] {tc.name}({tc.arguments}) -> {str(r)[:120]}")
+            return idx, (tc.id, str(r))
+
+        with ThreadPoolExecutor(max_workers=min(len(tool_calls), 6)) as ex:
+            for idx, pair in ex.map(_one, list(enumerate(tool_calls))):
+                results[idx] = pair
+        return results
+
     def think(self, user_text: str, lang: str = "en") -> str:
-        """Run one user turn. Handles multi-step tool calling. Returns final spoken reply."""
+        """Run one user turn. Handles multi-step tool calling. Returns final spoken reply.
+
+        Efficiency: the FIRST model call is given only the tools relevant to the
+        user's message (dynamic routing) — big token savings. Follow-up calls in
+        the same turn use the full set so multi-step plans aren't constrained.
+        """
+        from .tool_router import select_tools
+
         self.history.append(self.client.make_user_message(user_text))
+        routed = select_tools(user_text, TOOLS,
+                              enabled=_settings.get("tool_routing", True))
         try:
-            for _ in range(6):
-                response = self.client.chat(self._system(), self.history, TOOLS)
+            for step in range(6):
+                tools_for_call = routed if step == 0 else TOOLS
+                response = self.client.chat(self._system(), self.history, tools_for_call)
                 self.history.append(self.client.make_assistant_message(response))
 
                 if not response.tool_calls:
                     self._trim_history()
                     return response.text or "Done."
 
-                # Execute every tool call from this turn.
-                results: list[tuple[str, str]] = []
-                for tc in response.tool_calls:
-                    result = self._exec_tool(tc.name, tc.arguments, lang)
-                    print(f"[tool] {tc.name}({tc.arguments}) -> {str(result)[:200]}")
-                    results.append((tc.id, str(result)))
+                results = self._exec_calls(response.tool_calls, lang)
 
                 tool_msg = self.client.make_tool_results(results)
                 if isinstance(tool_msg, list):

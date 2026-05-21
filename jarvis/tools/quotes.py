@@ -27,6 +27,10 @@ def _stooq_symbol(sym: str) -> str:
     return s + ".us"      # bare ticker -> assume US
 
 
+from ..cache import ttl_cache
+
+
+@ttl_cache(seconds=120)
 def stock_quote(symbol: str) -> str:
     """Get current price + day change. Symbol examples: AAPL, MSFT, TCS.NS, INFY.NS.
 

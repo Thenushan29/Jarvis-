@@ -48,6 +48,7 @@ SCHEMA: dict[str, Any] = {
     "ptt_hotkey": "ctrl+alt+j",
     "personality": "jarvis",
     "proactive_lead_minutes": 10,
+    "tool_routing": True,          # send only relevant tools per query (faster, cheaper)
 }
 
 

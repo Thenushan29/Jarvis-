@@ -7,6 +7,10 @@ import urllib.request
 
 # ===== Currency via frankfurter.app =====
 
+from ..cache import ttl_cache
+
+
+@ttl_cache(seconds=600)
 def _fx_rate(from_ccy: str, to_ccy: str) -> tuple[float, str]:
     f = (from_ccy or "").upper().strip()
     t = (to_ccy or "").upper().strip()

@@ -66,6 +66,7 @@ from .tools import local_music as t_music
 from .tools import focus as t_focus
 from .tools import scheduling as t_sched
 from .tools import profile as t_profile
+from . import watchers as t_watch
 from .plugins_loader import load_plugins, reserved_names_check
 from . import settings as _settings
 
@@ -596,6 +597,16 @@ TOOLS: list[dict] = [
     _tool("get_profile", "Show everything Jarvis knows about the user.", {}),
     _tool("clear_profile_field", "Remove a profile field.",
           {"field": {"type": "string"}}, ["field"]),
+
+    # ===== Real-time watchers =====
+    _tool("add_watch",
+          "Monitor something in the background and alert when it trips. "
+          "kind=stock (target=SYMBOL, direction=above|below, value=price); "
+          "kind=folder (target=folder path); kind=cpu|ram (direction, value=percent).",
+          {"kind": {"type": "string"}, "target": {"type": "string"},
+           "direction": {"type": "string"}, "value": {"type": "string"}}, ["kind"]),
+    _tool("list_watches", "List active background watches.", {}),
+    _tool("delete_watch", "Remove a watch by id.", {"watch_id": {"type": "string"}}, ["watch_id"]),
 ]
 
 TOOL_HANDLERS: dict[str, Any] = {
@@ -821,6 +832,12 @@ TOOL_HANDLERS: dict[str, Any] = {
     "set_profile": lambda i: t_profile.set_profile(i["field"], i["value"]),
     "get_profile": lambda i: t_profile.get_profile(),
     "clear_profile_field": lambda i: t_profile.clear_profile_field(i["field"]),
+    # Watchers
+    "add_watch": lambda i: t_watch.add_watch(
+        i["kind"], i.get("target", ""), i.get("direction", "above"), i.get("value", "")
+    ),
+    "list_watches": lambda i: t_watch.list_watches(),
+    "delete_watch": lambda i: t_watch.delete_watch(i["watch_id"]),
 }
 
 

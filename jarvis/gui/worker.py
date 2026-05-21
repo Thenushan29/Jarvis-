@@ -105,6 +105,12 @@ class JarvisWorker(QObject):
             )
             insights.start()
 
+            from jarvis.watchers import WatchEngine
+            watch = WatchEngine(
+                on_alert=lambda text: self._on_insight(text, speak, conv_log)
+            )
+            watch.start()
+
             try:
                 if self._mode == "wake":
                     self._run_wake_mode(brain, speak, listen, record_until_silence,
@@ -126,6 +132,10 @@ class JarvisWorker(QObject):
                     pass
                 try:
                     insights.stop()
+                except Exception:
+                    pass
+                try:
+                    watch.stop()
                 except Exception:
                     pass
                 self._emit_status("idle")

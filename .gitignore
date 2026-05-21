@@ -16,6 +16,10 @@ data/prenotified.json
 data/app_index.json
 data/routines.json
 data/skills.json
+data/tasks.json
+data/contacts.json
+data/expenses.json
+data/shopping.json
 jarvis_backup*.zip
 
 # ===== PYTHON =====

@@ -50,6 +50,10 @@ from .tools import knowledge as t_know
 from .tools import documents_create as t_doccreate
 from .tools import qr as t_qr
 from .tools import git_tools as t_git
+from .tools import tasks as t_tasks
+from .tools import contacts as t_contacts
+from .tools import expenses as t_expenses
+from .tools import shopping as t_shopping
 from .plugins_loader import load_plugins, reserved_names_check
 from . import settings as _settings
 
@@ -475,6 +479,35 @@ TOOLS: list[dict] = [
            "description": {"type": "string", "default": ""},
            "location": {"type": "string", "default": ""}},
           ["summary", "start_time"]),
+
+    # ===== v17: personal life manager — tasks / contacts / expenses / shopping =====
+    _tool("add_task", "Add a to-do task. priority is low | normal | high.",
+          {"text": {"type": "string"}, "priority": {"type": "string"}}, ["text"]),
+    _tool("list_tasks", "List pending to-do tasks (set include_done true to show completed).",
+          {"include_done": {"type": "boolean"}}),
+    _tool("complete_task", "Mark a task done by its id or text.",
+          {"task_id": {"type": "string"}}, ["task_id"]),
+    _tool("delete_task", "Delete a task by id or text.", {"task_id": {"type": "string"}}, ["task_id"]),
+
+    _tool("add_contact", "Save a person's contact details.",
+          {"name": {"type": "string"}, "phone": {"type": "string"},
+           "email": {"type": "string"}, "notes": {"type": "string"}}, ["name"]),
+    _tool("find_contact", "Look up a contact by name, phone, or email.",
+          {"query": {"type": "string"}}, ["query"]),
+    _tool("list_contacts", "List all saved contacts.", {}),
+
+    _tool("log_expense", "Log a spend. amount + optional category (food/travel/etc.) + note.",
+          {"amount": {"type": "number"}, "category": {"type": "string"},
+           "note": {"type": "string"}}, ["amount"]),
+    _tool("expense_summary", "Summarize expenses by category for today | week | month | all.",
+          {"period": {"type": "string"}}),
+
+    _tool("add_shopping_item", "Add an item to the shopping list (optional quantity).",
+          {"item": {"type": "string"}, "qty": {"type": "string"}}, ["item"]),
+    _tool("list_shopping", "Show the shopping list.", {}),
+    _tool("check_shopping_item", "Check off a shopping item as bought.",
+          {"item": {"type": "string"}}, ["item"]),
+    _tool("clear_shopping", "Clear the whole shopping list.", {}),
 ]
 
 TOOL_HANDLERS: dict[str, Any] = {
@@ -641,6 +674,24 @@ TOOL_HANDLERS: dict[str, Any] = {
     "git_diff": lambda i: t_git.git_diff(i.get("repo", "."), bool(i.get("staged", False))),
     "git_branches": lambda i: t_git.git_branches(i.get("repo", ".")),
     "git_commit": lambda i: t_git.git_commit(i.get("repo", "."), i["message"]),
+    # v17 — personal life manager
+    "add_task": lambda i: t_tasks.add_task(i["text"], i.get("priority", "normal")),
+    "list_tasks": lambda i: t_tasks.list_tasks(bool(i.get("include_done", False))),
+    "complete_task": lambda i: t_tasks.complete_task(i["task_id"]),
+    "delete_task": lambda i: t_tasks.delete_task(i["task_id"]),
+    "add_contact": lambda i: t_contacts.add_contact(
+        i["name"], i.get("phone", ""), i.get("email", ""), i.get("notes", "")
+    ),
+    "find_contact": lambda i: t_contacts.find_contact(i["query"]),
+    "list_contacts": lambda i: t_contacts.list_contacts(),
+    "log_expense": lambda i: t_expenses.log_expense(
+        i["amount"], i.get("category", "general"), i.get("note", "")
+    ),
+    "expense_summary": lambda i: t_expenses.expense_summary(i.get("period", "month")),
+    "add_shopping_item": lambda i: t_shopping.add_shopping_item(i["item"], i.get("qty", "")),
+    "list_shopping": lambda i: t_shopping.list_shopping(),
+    "check_shopping_item": lambda i: t_shopping.check_shopping_item(i["item"]),
+    "clear_shopping": lambda i: t_shopping.clear_shopping(),
 }
 
 

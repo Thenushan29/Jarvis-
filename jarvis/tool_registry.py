@@ -66,6 +66,7 @@ from .tools import local_music as t_music
 from .tools import focus as t_focus
 from .tools import scheduling as t_sched
 from .tools import profile as t_profile
+from .tools import excel as t_excel
 from . import watchers as t_watch
 from .plugins_loader import load_plugins, reserved_names_check
 from . import settings as _settings
@@ -607,6 +608,20 @@ TOOLS: list[dict] = [
            "direction": {"type": "string"}, "value": {"type": "string"}}, ["kind"]),
     _tool("list_watches", "List active background watches.", {}),
     _tool("delete_watch", "Remove a watch by id.", {"watch_id": {"type": "string"}}, ["watch_id"]),
+
+    # ===== Excel control =====
+    _tool("create_excel", "Create a spreadsheet from rows (list of row-lists).",
+          {"path": {"type": "string"}, "rows": {"type": "array"}, "sheet": {"type": "string"}},
+          ["path", "rows"]),
+    _tool("excel_append_row", "Append a row to a spreadsheet (creates it if missing).",
+          {"path": {"type": "string"}, "row": {"type": "array"}, "sheet": {"type": "string"}},
+          ["path", "row"]),
+    _tool("excel_set_cell", "Set a single cell (e.g. cell 'B2').",
+          {"path": {"type": "string"}, "cell": {"type": "string"}, "value": {"type": "string"},
+           "sheet": {"type": "string"}}, ["path", "cell", "value"]),
+    _tool("excel_read_cell", "Read a single cell value.",
+          {"path": {"type": "string"}, "cell": {"type": "string"}, "sheet": {"type": "string"}},
+          ["path", "cell"]),
 ]
 
 TOOL_HANDLERS: dict[str, Any] = {
@@ -838,6 +853,11 @@ TOOL_HANDLERS: dict[str, Any] = {
     ),
     "list_watches": lambda i: t_watch.list_watches(),
     "delete_watch": lambda i: t_watch.delete_watch(i["watch_id"]),
+    # Excel
+    "create_excel": lambda i: t_excel.create_excel(i["path"], i.get("rows") or [], i.get("sheet", "Sheet1")),
+    "excel_append_row": lambda i: t_excel.append_row(i["path"], i.get("row") or [], i.get("sheet", "")),
+    "excel_set_cell": lambda i: t_excel.set_cell(i["path"], i["cell"], i["value"], i.get("sheet", "")),
+    "excel_read_cell": lambda i: t_excel.read_cell(i["path"], i["cell"], i.get("sheet", "")),
 }
 
 

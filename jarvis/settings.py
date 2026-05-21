@@ -52,6 +52,7 @@ SCHEMA: dict[str, Any] = {
     "personality": "jarvis",
     "proactive_lead_minutes": 10,
     "tool_routing": True,          # send only relevant tools per query (faster, cheaper)
+    "proactive_insights": True,    # let Jarvis surface helpful nudges on its own
 }
 
 

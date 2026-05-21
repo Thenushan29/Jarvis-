@@ -24,6 +24,7 @@ data/habits.json
 data/health.json
 data/journal.json
 data/profile.json
+data/insights_state.json
 jarvis_backup*.zip
 
 # ===== PYTHON =====

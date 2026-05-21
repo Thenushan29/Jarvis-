@@ -99,6 +99,12 @@ class JarvisWorker(QObject):
             )
             routines.start()
 
+            from jarvis.proactive_insights import InsightEngine
+            insights = InsightEngine(
+                on_insight=lambda text: self._on_insight(text, speak, conv_log)
+            )
+            insights.start()
+
             try:
                 if self._mode == "wake":
                     self._run_wake_mode(brain, speak, listen, record_until_silence,
@@ -118,11 +124,29 @@ class JarvisWorker(QObject):
                     routines.stop()
                 except Exception:
                     pass
+                try:
+                    insights.stop()
+                except Exception:
+                    pass
                 self._emit_status("idle")
         except Exception as e:
             traceback.print_exc()
             self.error.emit(f"{type(e).__name__}: {e}")
             self._emit_status("error")
+
+    def _on_insight(self, text: str, speak, conv_log) -> None:
+        """A proactive suggestion Jarvis surfaces on its own."""
+        self._emit_log("jarvis", text)
+        conv_log("jarvis", text, "en")
+        try:
+            from ..notify import toast
+            toast("Jarvis", text[:200], timeout=8)
+        except Exception:
+            pass
+        try:
+            speak(text, "en")
+        except Exception:
+            pass
 
     def _on_prenotify(self, reminder: dict, minutes: int, speak, conv_log) -> None:
         """Heads-up before a reminder fires."""

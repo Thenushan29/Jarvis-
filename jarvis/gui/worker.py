@@ -244,16 +244,27 @@ class JarvisWorker(QObject):
                 if not text:
                     speak("I didn't catch that.", "en")
                     continue
+                from jarvis.conversation import is_exit_phrase, farewell
+                if is_exit_phrase(text):
+                    speak(farewell(lang), lang); continue
                 self._process_turn(brain, text, lang, speak, conv_log)
 
-                # Follow-up window
+                # Natural conversation — keep going until done / two silences.
+                misses = 0
                 while not self._stop.is_set():
                     if not self._wait_for_voice(followup_seconds):
-                        break
+                        misses += 1
+                        if misses >= 2:
+                            break
+                        continue
+                    misses = 0
                     self._emit_status("listening")
                     audio = record_until_silence()
                     text, lang = transcribe(audio)
                     if not text.strip():
+                        continue
+                    if is_exit_phrase(text):
+                        speak(farewell(lang), lang)
                         break
                     self._process_turn(brain, text, lang, speak, conv_log)
         finally:

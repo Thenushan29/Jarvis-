@@ -152,17 +152,29 @@ def run_wake_mode(brain: Brain) -> int:
             if not text:
                 speak("I didn't catch that.", "en")
                 continue
+            from jarvis.conversation import is_exit_phrase, farewell
+            if is_exit_phrase(text):
+                speak(farewell(lang), lang); continue
             _process_user_turn(brain, text, lang)
 
-            # Follow-up window
+            # Natural conversation: keep talking until the user says they're done
+            # (or two silences in a row). No need to repeat "Hey Jarvis".
+            misses = 0
             while True:
-                print(f"[followup] listening for {FOLLOWUP_SECONDS}s...")
+                print(f"[conversation] listening...")
                 if not _wait_for_voice(FOLLOWUP_SECONDS):
-                    print("[followup] no voice detected — sleeping.")
-                    break
+                    misses += 1
+                    if misses >= 2:
+                        print("[conversation] ending — back to wake word.")
+                        break
+                    continue
+                misses = 0
                 audio = record_until_silence()
                 text, lang = transcribe(audio)
                 if not text.strip():
+                    continue
+                if is_exit_phrase(text):
+                    speak(farewell(lang), lang)
                     break
                 _process_user_turn(brain, text, lang)
     finally:

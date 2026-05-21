@@ -11,9 +11,9 @@ ENGLISH_PRESETS: list[dict] = [
         "id": "jarvis",
         "label": "🤖 Jarvis (Iron Man — British, mature, calm)",
         "voice": "en-GB-ThomasNeural",
-        "rate": "-5%",
-        "pitch": "-3Hz",
-        "description": "Deep, calm, British — closest to Marvel's J.A.R.V.I.S.",
+        "rate": "-6%",
+        "pitch": "-4Hz",
+        "description": "Deep, calm, refined British — closest to Marvel's J.A.R.V.I.S.",
     },
     {
         "id": "british_male_young",

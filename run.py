@@ -136,7 +136,7 @@ def run_wake_mode(brain: Brain) -> int:
         return 1
 
     calibrate_silence()
-    speak("Jarvis online. Say hey jarvis when you need me.", "en")
+    speak("Good day, sir. Jarvis online and at your service.", "en")
 
     try:
         while True:

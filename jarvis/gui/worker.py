@@ -263,7 +263,7 @@ class JarvisWorker(QObject):
 
         calibrate_silence()
         self._emit_log("system", "Wake-word ready. Say 'Hey Jarvis'.")
-        speak("Jarvis online. Say hey jarvis when you need me.", "en")
+        speak("Good day, sir. Jarvis online and at your service.", "en")
 
         try:
             while not self._stop.is_set():

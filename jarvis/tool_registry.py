@@ -65,6 +65,7 @@ from .tools import organize as t_organize
 from .tools import local_music as t_music
 from .tools import focus as t_focus
 from .tools import scheduling as t_sched
+from .tools import profile as t_profile
 from .plugins_loader import load_plugins, reserved_names_check
 from . import settings as _settings
 
@@ -586,6 +587,15 @@ TOOLS: list[dict] = [
           "within working hours (default 09:00-21:00).",
           {"date": {"type": "string"}, "work_start": {"type": "string"},
            "work_end": {"type": "string"}, "min_slot_minutes": {"type": "integer"}}),
+
+    # ===== Personal profile — Jarvis knows you =====
+    _tool("set_profile",
+          "Save a structured fact about the user. field is one of: name, nickname, location, "
+          "work, role, birthday, languages, family, preferences, goals, important_dates, notes.",
+          {"field": {"type": "string"}, "value": {"type": "string"}}, ["field", "value"]),
+    _tool("get_profile", "Show everything Jarvis knows about the user.", {}),
+    _tool("clear_profile_field", "Remove a profile field.",
+          {"field": {"type": "string"}}, ["field"]),
 ]
 
 TOOL_HANDLERS: dict[str, Any] = {
@@ -807,6 +817,10 @@ TOOL_HANDLERS: dict[str, Any] = {
         i.get("date", "today"), i.get("work_start", "09:00"),
         i.get("work_end", "21:00"), _int(i.get("min_slot_minutes"), 30)
     ),
+    # Personal profile
+    "set_profile": lambda i: t_profile.set_profile(i["field"], i["value"]),
+    "get_profile": lambda i: t_profile.get_profile(),
+    "clear_profile_field": lambda i: t_profile.clear_profile_field(i["field"]),
 }
 
 

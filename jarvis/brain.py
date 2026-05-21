@@ -8,6 +8,7 @@ import datetime as _dt
 
 from .llm import make_llm_client, LLMClient
 from .tools import memory as t_memory
+from .tools import profile as t_profile
 from .personality import get_guidance as _personality_guidance
 from . import settings as _settings
 from .tool_registry import TOOLS, TOOL_HANDLERS, _load_plugins_once
@@ -28,19 +29,22 @@ Rules:
   for confirmation before actually sending.
 
 LEARN ABOUT THE USER — IMPORTANT:
-- Proactively call the `remember` tool whenever the user shares a fact about themselves:
-  name, age, birthday, family members' names/phones, work, location, preferences (foods,
-  music, shows), habits, schedules, goals, allergies, or any recurring identifier.
-- Use short kebab-case keys (e.g., "user-name", "amma-phone", "morning-routine").
-- When the user asks something that might be in past conversations, call `recall_similar` first.
-- Use `recall` to look up specific saved facts when relevant.
+- When the user shares a structured fact about themselves (name, location, work, role,
+  birthday, family member, a preference, a goal, an important date), call `set_profile`
+  with the right field so you ALWAYS know it. Fields: name, nickname, location, work,
+  role, birthday, languages, family, preferences, goals, important_dates, notes.
+- For looser facts, use `remember`. For past-conversation lookups, use `recall_similar`.
+- Address the user by name/nickname when you know it. Reference their context naturally.
 
 Personality / tone:
 {personality}
 
+WHO YOU'RE TALKING TO (their profile):
+{profile}
+
 Current local time: {now}
 
-What you already remember about the user:
+Other things you remember:
 {memory}
 """
 
@@ -56,10 +60,12 @@ class Brain:
 
     def _system(self) -> str:
         mem = t_memory.memory_summary_for_prompt() or "(nothing yet)"
+        prof = t_profile.profile_for_prompt() or "(unknown — ask and use set_profile)"
         personality_id = _settings.get("personality", "jarvis")
         return SYSTEM_PROMPT.format(
             now=_dt.datetime.now().strftime("%A %d %B %Y, %I:%M %p"),
             memory=mem,
+            profile=prof,
             personality=_personality_guidance(personality_id),
         )
 

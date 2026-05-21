@@ -23,6 +23,7 @@ data/shopping.json
 data/habits.json
 data/health.json
 data/journal.json
+data/profile.json
 jarvis_backup*.zip
 
 # ===== PYTHON =====

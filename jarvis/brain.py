@@ -68,7 +68,7 @@ class Brain:
         if not fn:
             return f"Unknown tool: {name}"
         try:
-            if name in ("add_reminder", "set_timer"):
+            if name in ("add_reminder", "set_timer", "start_pomodoro"):
                 return fn(args, lang=lang)
             return fn(args)
         except Exception as e:

@@ -62,6 +62,9 @@ from .tools import voice_memo as t_memo
 from .tools import image_edit as t_imgedit
 from .tools import pdf_tools as t_pdf
 from .tools import organize as t_organize
+from .tools import local_music as t_music
+from .tools import focus as t_focus
+from .tools import scheduling as t_sched
 from .plugins_loader import load_plugins, reserved_names_check
 from . import settings as _settings
 
@@ -567,6 +570,22 @@ TOOLS: list[dict] = [
           "Sort loose files in a folder into category subfolders (Images/Documents/Videos/...). "
           "Set dry_run true to preview the plan first.",
           {"folder": {"type": "string"}, "dry_run": {"type": "boolean"}}, ["folder"]),
+
+    # ===== v21: music / focus / scheduling =====
+    _tool("play_music", "Play a song from the user's Music/Downloads folders by name.",
+          {"query": {"type": "string"}}),
+    _tool("list_music", "List local music tracks, optionally filtered by a search term.",
+          {"query": {"type": "string"}, "limit": {"type": "integer"}}),
+    _tool("start_pomodoro",
+          "Start a Pomodoro focus session: (work + break) x cycles, with a nudge at each "
+          "transition. Defaults 25 work / 5 break / 4 cycles.",
+          {"work_minutes": {"type": "integer"}, "break_minutes": {"type": "integer"},
+           "cycles": {"type": "integer"}}),
+    _tool("find_free_time",
+          "Find free time slots in Google Calendar for 'today' | 'tomorrow' | YYYY-MM-DD, "
+          "within working hours (default 09:00-21:00).",
+          {"date": {"type": "string"}, "work_start": {"type": "string"},
+           "work_end": {"type": "string"}, "min_slot_minutes": {"type": "integer"}}),
 ]
 
 TOOL_HANDLERS: dict[str, Any] = {
@@ -777,6 +796,17 @@ TOOL_HANDLERS: dict[str, Any] = {
     "split_pdf": lambda i: t_pdf.split_pdf(i["path"], i.get("ranges", "")),
     "pdf_info": lambda i: t_pdf.pdf_info(i["path"]),
     "organize_folder": lambda i: t_organize.organize_folder(i["folder"], bool(i.get("dry_run", False))),
+    # v21 — music / focus / scheduling
+    "play_music": lambda i: t_music.play_music(i.get("query", "")),
+    "list_music": lambda i: t_music.list_music(i.get("query", ""), _int(i.get("limit"), 20)),
+    "start_pomodoro": lambda i, lang="en": t_focus.start_pomodoro(
+        _int(i.get("work_minutes"), 25), _int(i.get("break_minutes"), 5),
+        _int(i.get("cycles"), 4), lang
+    ),
+    "find_free_time": lambda i: t_sched.find_free_time(
+        i.get("date", "today"), i.get("work_start", "09:00"),
+        i.get("work_end", "21:00"), _int(i.get("min_slot_minutes"), 30)
+    ),
 }
 
 

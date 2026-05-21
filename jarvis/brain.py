@@ -49,6 +49,9 @@ from .tools import spreadsheet as t_sheet
 from .tools import computer_use as t_compuse
 from .tools import self_extend as t_selfext
 from .tools import knowledge as t_know
+from .tools import documents_create as t_doccreate
+from .tools import qr as t_qr
+from .tools import git_tools as t_git
 from .plugins_loader import load_plugins, reserved_names_check
 from .personality import get_guidance as _personality_guidance
 from . import settings as _settings
@@ -419,6 +422,31 @@ TOOLS: list[dict] = [
           "Answer a question across all documents in a folder (auto-indexes if needed).",
           {"folder": {"type": "string"}, "question": {"type": "string"}}, ["folder", "question"]),
 
+    # ===== v14: create documents / QR / git =====
+    _tool("create_pdf", "Create a PDF document from text content (saves to Desktop by default).",
+          {"content": {"type": "string"}, "title": {"type": "string"}, "path": {"type": "string"}},
+          ["content"]),
+    _tool("create_docx", "Create a Word (.docx) document from text content.",
+          {"content": {"type": "string"}, "title": {"type": "string"}, "path": {"type": "string"}},
+          ["content"]),
+    _tool("create_markdown", "Create a Markdown (.md) file from text content.",
+          {"content": {"type": "string"}, "title": {"type": "string"}, "path": {"type": "string"}},
+          ["content"]),
+    _tool("generate_qr", "Generate a QR code PNG encoding text or a URL.",
+          {"data": {"type": "string"}, "path": {"type": "string"}}, ["data"]),
+    _tool("generate_wifi_qr", "Generate a QR code that lets phones join a WiFi network.",
+          {"ssid": {"type": "string"}, "password": {"type": "string"},
+           "security": {"type": "string"}}, ["ssid", "password"]),
+    _tool("git_status", "Show git status of a repo (default current dir).",
+          {"repo": {"type": "string"}}),
+    _tool("git_log", "Show recent git commits of a repo.",
+          {"repo": {"type": "string"}, "n": {"type": "integer"}}),
+    _tool("git_diff", "Show a git diff stat of a repo.",
+          {"repo": {"type": "string"}, "staged": {"type": "boolean"}}),
+    _tool("git_branches", "List branches of a repo.", {"repo": {"type": "string"}}),
+    _tool("git_commit", "Stage all + commit a repo with a message. Confirm first. Does NOT push.",
+          {"repo": {"type": "string"}, "message": {"type": "string"}}, ["message"]),
+
     # --- notes ---
     _tool("add_note",
           "Save a quick note to the user's notes file. Use when the user says "
@@ -613,6 +641,19 @@ TOOL_HANDLERS: dict[str, Any] = {
     "create_plugin": lambda i: t_selfext.create_plugin(i["name"], i["description"]),
     "index_folder": lambda i: t_know.index_folder(i["folder"]),
     "ask_knowledge": lambda i: t_know.ask_knowledge(i["folder"], i["question"]),
+    # v14 — create / qr / git
+    "create_pdf": lambda i: t_doccreate.create_pdf(i["content"], i.get("title", ""), i.get("path", "")),
+    "create_docx": lambda i: t_doccreate.create_docx(i["content"], i.get("title", ""), i.get("path", "")),
+    "create_markdown": lambda i: t_doccreate.create_markdown(i["content"], i.get("title", ""), i.get("path", "")),
+    "generate_qr": lambda i: t_qr.generate_qr(i["data"], i.get("path", "")),
+    "generate_wifi_qr": lambda i: t_qr.generate_wifi_qr(
+        i["ssid"], i["password"], i.get("security", "WPA"), i.get("path", "")
+    ),
+    "git_status": lambda i: t_git.git_status(i.get("repo", ".")),
+    "git_log": lambda i: t_git.git_log(i.get("repo", "."), _int(i.get("n"), 10)),
+    "git_diff": lambda i: t_git.git_diff(i.get("repo", "."), bool(i.get("staged", False))),
+    "git_branches": lambda i: t_git.git_branches(i.get("repo", ".")),
+    "git_commit": lambda i: t_git.git_commit(i.get("repo", "."), i["message"]),
 }
 
 

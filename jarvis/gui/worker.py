@@ -111,6 +111,17 @@ class JarvisWorker(QObject):
             )
             watch.start()
 
+            tele = None
+            try:
+                from jarvis.config import TELEGRAM_BOT_TOKEN
+                if TELEGRAM_BOT_TOKEN:
+                    from jarvis.telegram_bridge import TelegramBridge
+                    tele = TelegramBridge()
+                    tele.start()
+                    self._emit_log("system", "Telegram bridge online — message your bot from your phone.")
+            except Exception as e:
+                print(f"[telegram] not started: {e}")
+
             try:
                 if self._mode == "wake":
                     self._run_wake_mode(brain, speak, listen, record_until_silence,
@@ -136,6 +147,11 @@ class JarvisWorker(QObject):
                     pass
                 try:
                     watch.stop()
+                except Exception:
+                    pass
+                try:
+                    if tele:
+                        tele.stop()
                 except Exception:
                     pass
                 self._emit_status("idle")

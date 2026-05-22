@@ -196,9 +196,13 @@ def main() -> int:
 
     mode = (sys.argv[1].lower() if len(sys.argv) > 1 else "wake").strip()
     no_speak = "--no-speak" in sys.argv
-    if mode not in {"text", "voice", "wake"}:
-        print(f"Unknown mode '{mode}'. Use: text | voice | wake")
+    if mode not in {"text", "voice", "wake", "telegram"}:
+        print(f"Unknown mode '{mode}'. Use: text | voice | wake | telegram")
         return 1
+
+    if mode == "telegram":
+        from jarvis.telegram_bridge import run_bridge
+        return run_bridge()
 
     print("=" * 60)
     print(f" JARVIS — bilingual voice assistant  (mode: {mode})")

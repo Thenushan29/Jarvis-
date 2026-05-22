@@ -60,6 +60,10 @@ TWILIO_SID = os.getenv("TWILIO_SID", "").strip()
 TWILIO_TOKEN = os.getenv("TWILIO_TOKEN", "").strip()
 TWILIO_FROM = os.getenv("TWILIO_FROM", "").strip()
 
+# Telegram bridge (use Jarvis from your phone) — optional
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+
 DATA_DIR = ROOT / "data"
 DATA_DIR.mkdir(exist_ok=True)
 REMINDERS_FILE = DATA_DIR / "reminders.json"

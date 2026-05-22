@@ -7,6 +7,7 @@ import asyncio
 import os
 import tempfile
 import threading
+import time
 from pathlib import Path
 
 import edge_tts
@@ -15,23 +16,27 @@ import pygame
 from ..config import TTS_VOICE_TAMIL, TTS_VOICE_ENGLISH
 from .presets import ENGLISH_PRESETS, TAMIL_PRESETS, find_preset
 
-_mixer_state: dict = {"inited": False, "ok": False, "error": None}
+_mixer_state: dict = {"ok": False, "error": None, "warned": False}
 _speak_lock = threading.Lock()
 
 
 def _ensure_mixer() -> bool:
-    if _mixer_state["inited"]:
-        return _mixer_state["ok"]
-    _mixer_state["inited"] = True
+    """Lazily init the audio mixer. A failure is NOT cached permanently — the
+    device may be momentarily busy at startup, so we retry on the next speak()
+    instead of going silent for the whole session."""
+    if _mixer_state["ok"]:
+        return True
     try:
         pygame.mixer.init()
         _mixer_state["ok"] = True
+        _mixer_state["error"] = None
         return True
     except Exception as e:
         _mixer_state["error"] = str(e)
-        _mixer_state["ok"] = False
-        print(f"[speak] WARNING: pygame.mixer.init failed: {e}. "
-              "Pick a default audio output in Windows Sound settings.")
+        if not _mixer_state["warned"]:
+            print(f"[speak] WARNING: pygame.mixer.init failed: {e}. "
+                  "Pick a default audio output in Windows Sound settings.")
+            _mixer_state["warned"] = True
         return False
 
 
@@ -85,19 +90,30 @@ def _split_sentences(text: str) -> list[str]:
     return parts if len(parts) > 1 else [text]
 
 
-def _synth_one(text: str, preset: dict) -> Path | None:
-    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
-        path = Path(f.name)
-    try:
-        asyncio.run(_synthesize(text, preset["voice"], preset["rate"], preset["pitch"], path))
-        return path
-    except Exception as e:
-        print(f"[speak] synth failed for chunk: {e}")
+def _synth_one(text: str, preset: dict, attempts: int = 3) -> Path | None:
+    """Synthesize one chunk to an mp3. edge-tts hits a network service and can
+    transiently fail or return no audio, which used to make Jarvis silently skip
+    a sentence — so retry a few times before giving up."""
+    last_err = None
+    for i in range(attempts):
+        with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as f:
+            path = Path(f.name)
         try:
-            path.unlink(missing_ok=True)
-        except Exception:
-            pass
-        return None
+            asyncio.run(_synthesize(text, preset["voice"], preset["rate"], preset["pitch"], path))
+            # edge-tts can return without raising yet produce an empty file.
+            if path.exists() and path.stat().st_size > 0:
+                return path
+            raise RuntimeError("edge-tts returned no audio")
+        except Exception as e:
+            last_err = e
+            try:
+                path.unlink(missing_ok=True)
+            except Exception:
+                pass
+            if i < attempts - 1:
+                time.sleep(0.6 * (i + 1))   # brief backoff, then retry
+    print(f"[speak] synth failed after {attempts} attempts: {last_err}")
+    return None
 
 
 def speak(text: str, lang: str = "en") -> None:

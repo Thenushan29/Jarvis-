@@ -61,21 +61,37 @@ def convert_currency(amount: float, from_currency: str, to_currency: str) -> str
 
 # All factors normalise to a base unit per dimension.
 _LENGTH_TO_M = {
-    "mm": 0.001, "cm": 0.01, "m": 1.0, "km": 1000.0,
-    "in": 0.0254, "inch": 0.0254, "ft": 0.3048, "yd": 0.9144, "mi": 1609.344, "mile": 1609.344,
+    "mm": 0.001, "millimeter": 0.001, "millimetre": 0.001,
+    "cm": 0.01, "centimeter": 0.01, "centimetre": 0.01,
+    "m": 1.0, "meter": 1.0, "metre": 1.0,
+    "km": 1000.0, "kilometer": 1000.0, "kilometre": 1000.0,
+    "in": 0.0254, "inch": 0.0254, "ft": 0.3048, "foot": 0.3048,
+    "yd": 0.9144, "yard": 0.9144,
+    "mi": 1609.344, "mile": 1609.344,
 }
 _MASS_TO_KG = {
-    "mg": 1e-6, "g": 1e-3, "kg": 1.0, "tonne": 1000.0,
-    "oz": 0.0283495, "lb": 0.453592, "lbs": 0.453592,
+    "mg": 1e-6, "milligram": 1e-6, "g": 1e-3, "gram": 1e-3, "gramme": 1e-3,
+    "kg": 1.0, "kilogram": 1.0, "tonne": 1000.0, "ton": 1000.0,
+    "oz": 0.0283495, "ounce": 0.0283495, "lb": 0.453592, "lbs": 0.453592, "pound": 0.453592,
 }
 _TIME_TO_S = {
-    "ms": 1e-3, "s": 1.0, "sec": 1.0, "min": 60.0, "minute": 60.0,
-    "hour": 3600.0, "hr": 3600.0, "day": 86400.0,
+    "ms": 1e-3, "millisecond": 1e-3, "s": 1.0, "sec": 1.0, "second": 1.0,
+    "min": 60.0, "minute": 60.0, "hour": 3600.0, "hr": 3600.0, "day": 86400.0,
 }
 _VOLUME_TO_L = {
-    "ml": 0.001, "l": 1.0, "liter": 1.0, "litre": 1.0,
-    "cup": 0.2365882, "pint": 0.473176, "quart": 0.946353, "gallon": 3.785411,
+    "ml": 0.001, "milliliter": 0.001, "millilitre": 0.001,
+    "l": 1.0, "liter": 1.0, "litre": 1.0,
+    "cup": 0.2365882, "pint": 0.473176, "quart": 0.946353,
+    "gallon": 3.785411, "gal": 3.785411,
 }
+
+
+def _normalize_unit(u: str) -> str:
+    """Lowercase, strip, and drop a trailing plural 's' (kept 'ms', 'lbs', 'gas')."""
+    u = (u or "").lower().strip()
+    if u.endswith("s") and u not in {"ms", "lbs", "s"}:
+        u = u[:-1]
+    return u
 
 
 def _try_temperature(amount: float, src: str, dst: str) -> str | None:
@@ -106,8 +122,8 @@ def convert_unit(amount: float, from_unit: str, to_unit: str) -> str:
         amt = float(amount)
     except (TypeError, ValueError):
         return f"Invalid amount: {amount}"
-    fu = (from_unit or "").lower().strip()
-    tu = (to_unit or "").lower().strip()
+    fu = _normalize_unit(from_unit)
+    tu = _normalize_unit(to_unit)
 
     temp = _try_temperature(amt, fu, tu)
     if temp is not None:

@@ -62,14 +62,16 @@ for cmd in ["echo hi", "dir", "Get-ChildItem", "python script.py", "git status"]
 print("\n[ROUTING] relevance selection")
 from jarvis.brain import TOOLS, Brain
 Brain()  # ensure plugins (e.g. weather) are loaded into TOOLS, as in real usage
-from jarvis.tool_router import select_tools, CORE_TOOLS
+from jarvis.tool_router import select_tools, CORE_TOOLS, MAX_TOOLS
 weather_sel = {t["name"] for t in select_tools("what is the weather forecast", TOOLS, k=25)}
 chk("weather query routes get_weather", "get_weather" in weather_sel)
 chk("routing keeps it under full set", len(weather_sel) < len(TOOLS))
 chk("core tools always present", CORE_TOOLS.issubset({t["name"] for t in select_tools("xyz", TOOLS)}))
 git_sel = {t["name"] for t in select_tools("commit my code to git", TOOLS, k=25)}
 chk("git query routes git tools", any("git" in n for n in git_sel))
-chk("empty query -> all tools", len(select_tools("", TOOLS)) == len(TOOLS))
+chk("empty query -> full set (capped to provider limit)",
+    len(select_tools("", TOOLS)) == min(len(TOOLS), MAX_TOOLS))
+chk("tool list never exceeds provider cap", len(select_tools("", TOOLS)) <= MAX_TOOLS)
 
 # ---------- Fallback retryable detection ----------
 print("\n[FALLBACK] retryable error detection")

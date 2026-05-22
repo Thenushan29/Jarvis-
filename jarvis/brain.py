@@ -143,14 +143,17 @@ class Brain:
         user's message (dynamic routing) — big token savings. Follow-up calls in
         the same turn use the full set so multi-step plans aren't constrained.
         """
-        from .tool_router import select_tools
+        from .tool_router import select_tools, cap_tools
 
         self.history.append(self.client.make_user_message(user_text))
         routed = select_tools(user_text, TOOLS,
                               enabled=_settings.get("tool_routing", True))
+        # Follow-up calls use the fuller set, but still capped below the
+        # provider tool limit (Groq rejects > 128), keeping routed tools.
+        followup_tools = cap_tools(TOOLS, prefer=[t["name"] for t in routed])
         try:
             for step in range(6):
-                tools_for_call = routed if step == 0 else TOOLS
+                tools_for_call = routed if step == 0 else followup_tools
                 response = self.client.chat(self._system(), self.history, tools_for_call)
                 self.history.append(self.client.make_assistant_message(response))
 

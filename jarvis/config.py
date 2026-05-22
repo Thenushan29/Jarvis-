@@ -1,7 +1,16 @@
 """Central config — loads .env and exposes settings."""
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
+
+# Windows consoles default to cp1252, which crashes when printing tool output
+# containing unicode (e.g. ↗ in weather, emoji). Force UTF-8 on the streams.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
@@ -43,6 +52,36 @@ if not LLM_PROVIDER and (os.getenv("GROQ_API_KEY") or os.getenv("GROQ_MODEL")):
 # Final default — Groq with their free key if user just dropped one in.
 if not LLM_PROVIDER:
     LLM_PROVIDER = "groq"
+
+
+# ===== Provider-aware tool-list cap =====
+# Different providers cap how many tools you may send per request. Jarvis adapts
+# automatically to whatever API key the user configured — no manual setup. When a
+# fallback is set, the SAME tool list is sent to whichever provider is active, so
+# we use the strictest (smallest) limit of the configured providers.
+_PROVIDER_TOOL_LIMITS = {
+    "groq": 120,            # Groq hard-rejects > 128
+    "openai": 120,          # OpenAI caps at 128
+    "openai_compat": 120,   # unknown OpenAI-compatible endpoint — stay safe
+    "openrouter": 120,
+    "together": 120,
+    "ollama": 120,
+    "gemini": 120,          # Gemini function-calling also caps ~128
+    "anthropic": 500,       # Claude handles hundreds of tools — expose them all
+}
+
+
+def _tool_limit_for(provider: str) -> int:
+    return _PROVIDER_TOOL_LIMITS.get((provider or "").lower(), 120)
+
+
+_active_providers = [LLM_PROVIDER] + ([LLM_FALLBACK_PROVIDER] if LLM_FALLBACK_PROVIDER else [])
+TOOL_LIMIT = min(_tool_limit_for(p) for p in _active_providers)
+
+# Optional manual override for power users (e.g. TOOL_LIMIT=173).
+_tool_limit_override = os.getenv("TOOL_LIMIT", "").strip()
+if _tool_limit_override.isdigit() and int(_tool_limit_override) > 0:
+    TOOL_LIMIT = int(_tool_limit_override)
 
 
 # ===== Voice / wake config =====

@@ -7,6 +7,7 @@ import json
 import re
 import urllib.parse
 import urllib.request
+from html import unescape
 
 USER_AGENT = "Mozilla/5.0 Jarvis-quotes/7.0"
 
@@ -88,7 +89,11 @@ def stock_quote(symbol: str) -> str:
 
 
 def cricket_score(query: str = "") -> str:
-    """Live cricket scores from cricbuzz. With no query -> current matches."""
+    """Live cricket scores/fixtures from cricbuzz. With no query -> current matches.
+
+    Parses the per-match anchor links (stable) whose title carries the teams,
+    match number and status (Live / Preview / Complete / Upcoming).
+    """
     try:
         html = _http("https://www.cricbuzz.com/cricket-match/live-scores").decode(
             "utf-8", errors="replace"
@@ -96,27 +101,31 @@ def cricket_score(query: str = "") -> str:
     except Exception as e:
         return f"Cricket fetch failed: {e}"
 
-    # Each match card has a title and a score line. Pull both via simple regex.
-    titles = re.findall(r'<h3 class="cb-lv-scr-mtch-hdr[^"]*"[^>]*>\s*<a[^>]*>([^<]+)</a>', html)
-    scores = re.findall(r'<div class="cb-lv-scrs-well[^"]*"[^>]*>(.*?)</div>', html, re.DOTALL)
+    # <a href="/live-cricket-scores/<id>/..." title="Team vs Team, Nth Match - Status">
+    links = re.findall(
+        r'<a[^>]+href="/live-cricket-scores/(\d+)/[^"]+"[^>]*title="([^"]+)"', html
+    )
+    seen: set[str] = set()
+    matches: list[str] = []
+    for mid, title in links:
+        if mid in seen:
+            continue
+        seen.add(mid)
+        matches.append(unescape(title.strip()))
 
-    if not titles:
-        return "Couldn't parse current matches (cricbuzz may have changed)."
-    items = []
-    for i, title in enumerate(titles[:5]):
-        score_text = ""
-        if i < len(scores):
-            score_text = re.sub(r"<[^>]+>", " ", scores[i])
-            score_text = re.sub(r"\s+", " ", score_text).strip()
-        line = f"- {title.strip()}"
-        if score_text:
-            line += f"  ({score_text[:100]})"
-        items.append(line)
+    if not matches:
+        return "Couldn't reach cricbuzz right now (page format may have changed)."
 
     q = (query or "").strip().lower()
     if q:
-        items = [it for it in items if q in it.lower()]
-        if not items:
-            return f"No live matches matching '{query}'."
+        hits = [m for m in matches if q in m.lower()]
+        if not hits:
+            return f"No matches found for '{query}'."
+        return "Cricket:\n" + "\n".join(f"- {m}" for m in hits[:8])
 
-    return "Live cricket:\n" + "\n".join(items)
+    # No query: surface live games first, then a few others.
+    live = [m for m in matches if m.lower().endswith("- live") or " - live" in m.lower()]
+    rest = [m for m in matches if m not in live]
+    ordered = (live + rest)[:8]
+    header = "Live cricket:" if live else "Cricket fixtures:"
+    return header + "\n" + "\n".join(f"- {m}" for m in ordered)

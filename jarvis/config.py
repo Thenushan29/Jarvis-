@@ -4,9 +4,11 @@ import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Windows consoles default to cp1252, which crashes when printing tool output
-# containing unicode (e.g. ↗ in weather, emoji). Force UTF-8 on the streams.
-for _stream in (sys.stdout, sys.stderr):
+# Windows consoles default to cp1252. On OUTPUT this crashes when printing tool
+# results with unicode (e.g. ↗ in weather); on INPUT it mangles non-Latin text
+# (e.g. typed Tamil) into broken surrogate chars that later fail to encode when
+# sent to the LLM. Force UTF-8 on all three standard streams.
+for _stream in (sys.stdin, sys.stdout, sys.stderr):
     try:
         _stream.reconfigure(encoding="utf-8", errors="replace")
     except Exception:

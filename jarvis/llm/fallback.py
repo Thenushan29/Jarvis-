@@ -19,7 +19,10 @@ def _is_retryable(exc: Exception) -> bool:
     s = f"{type(exc).__name__} {exc}".lower()
     markers = ("rate limit", "ratelimit", "429", "rate_limit",
                "timeout", "timed out", "connection", "temporarily",
-               "503", "502", "500", "overloaded", "unavailable")
+               "503", "502", "500", "overloaded", "unavailable",
+               # Some Groq Llama models intermittently emit a malformed tool
+               # call; falling back to another provider recovers cleanly.
+               "tool_use_failed", "failed to call a function")
     return any(m in s for m in markers)
 
 

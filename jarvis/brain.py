@@ -5,6 +5,7 @@ The tool catalog lives in tool_registry.py; this file is the run-loop.
 """
 from __future__ import annotations
 import datetime as _dt
+import re
 
 from .llm import make_llm_client, LLMClient
 from .tools import memory as t_memory
@@ -13,6 +14,21 @@ from .personality import get_guidance as _personality_guidance
 from . import settings as _settings
 from .tool_registry import TOOLS, TOOL_HANDLERS, _load_plugins_once
 from .tool_router import select_tools
+
+# Some models (notably Groq's Llama) intermittently emit a malformed tool call
+# as plain text inside the reply, e.g. <function=set_profile>{...}</function>.
+# Strip any such leaked markup so it is never shown or spoken aloud.
+_TOOL_MARKUP_RE = re.compile(r"<function\b.*?</function\s*>", re.DOTALL | re.IGNORECASE)
+_TOOL_MARKUP_OPEN_RE = re.compile(r"<function\b.*$", re.DOTALL | re.IGNORECASE)
+
+
+def _strip_tool_markup(text: str) -> str:
+    if not text:
+        return text
+    cleaned = _TOOL_MARKUP_RE.sub("", text)
+    cleaned = _TOOL_MARKUP_OPEN_RE.sub("", cleaned)   # leftover unclosed fragment
+    return cleaned.strip()
+
 
 SYSTEM_PROMPT = """You are Jarvis, a personal voice assistant for the user on their Windows PC.
 
@@ -159,7 +175,7 @@ class Brain:
 
                 if not response.tool_calls:
                     self._trim_history()
-                    return response.text or "Done."
+                    return _strip_tool_markup(response.text) or "Done."
 
                 results = self._exec_calls(response.tool_calls, lang)
 

@@ -3,6 +3,7 @@
 Usage:
     python run.py            # default: wake-word mode ("Hey Jarvis")
     python run.py text       # text mode — type commands, no mic needed (BEST FOR TESTING)
+    python run.py handsfree  # always-listening — just talk, no ENTER, no wake word
     python run.py voice      # press-ENTER-to-talk mode (good for testing mic + STT)
     python run.py wake       # explicit wake-word mode
 
@@ -95,6 +96,40 @@ def run_text_mode(brain: Brain, speak_replies: bool) -> int:
         # Naive language detection — has Tamil unicode = Tamil.
         lang = "ta" if any("஀" <= c <= "௿" for c in text) else "en"
         _process_user_turn(brain, text, lang, speak_reply=speak_replies)
+
+
+# ===== MODE: HANDS-FREE (always listening, no ENTER, no wake word) =====
+
+def run_handsfree_mode(brain: Brain) -> int:
+    """Continuous listening: just talk and Jarvis responds. No ENTER, no wake word.
+
+    It listens; the moment you speak it records until you pause, transcribes,
+    replies (by voice), then listens again. While Jarvis is speaking it isn't
+    recording, so it won't hear itself.
+    """
+    from jarvis.conversation import is_exit_phrase, farewell
+    print("\n=== HANDS-FREE MODE (just talk — no ENTER, no wake word) ===")
+    calibrate_silence()
+    speak("Hands-free mode active, sir. Just talk to me whenever you like.", "en")
+    print("[listening] speak any time. Say 'that's all' to pause, Ctrl+C to quit.\n")
+
+    while True:
+        try:
+            # record_until_silence listens continuously and returns as soon as
+            # you start speaking and then pause. If you stay silent it returns
+            # empty after the max window and we simply listen again.
+            audio = record_until_silence()
+            text, lang = transcribe(audio)
+            if not text.strip():
+                continue
+            print(f"[heard:{lang}] {text}")
+            if is_exit_phrase(text):
+                speak(farewell(lang), lang)
+                continue   # stay in hands-free; just acknowledge
+            _process_user_turn(brain, text, lang)
+        except (EOFError, KeyboardInterrupt):
+            print("\n[exit] bye.")
+            return 0
 
 
 # ===== MODE: VOICE (press ENTER to talk, no wake word) =====
@@ -195,9 +230,12 @@ def main() -> int:
         return 1
 
     mode = (sys.argv[1].lower() if len(sys.argv) > 1 else "wake").strip()
+    # Friendly aliases for the always-listening mode.
+    if mode in {"handsfree", "hands-free", "listen", "auto"}:
+        mode = "handsfree"
     no_speak = "--no-speak" in sys.argv
-    if mode not in {"text", "voice", "wake", "telegram"}:
-        print(f"Unknown mode '{mode}'. Use: text | voice | wake | telegram")
+    if mode not in {"text", "voice", "wake", "telegram", "handsfree"}:
+        print(f"Unknown mode '{mode}'. Use: text | voice | wake | handsfree | telegram")
         return 1
 
     if mode == "telegram":
@@ -218,6 +256,8 @@ def main() -> int:
             return run_text_mode(brain, speak_replies=not no_speak)
         if mode == "voice":
             return run_voice_mode(brain)
+        if mode == "handsfree":
+            return run_handsfree_mode(brain)
         return run_wake_mode(brain)
     except KeyboardInterrupt:
         print("\n[exit] shutting down.")

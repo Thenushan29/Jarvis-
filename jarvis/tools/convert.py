@@ -17,31 +17,35 @@ def _fx_rate(from_ccy: str, to_ccy: str) -> tuple[float, str]:
     if not f or not t:
         return 0.0, "Provide both from and to currency codes (e.g. USD, EUR, INR)."
 
-    # Primary: frankfurter.app (needs a real User-Agent now)
-    try:
-        url = f"https://api.frankfurter.dev/v1/latest?base={urllib.parse.quote(f)}&symbols={urllib.parse.quote(t)}"
-        req = urllib.request.Request(url, headers={"User-Agent": "Jarvis/7.0"})
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        rate = (data.get("rates") or {}).get(t)
-        if rate is not None:
-            return float(rate), ""
-    except Exception:
-        pass
+    last_err = None
 
-    # Fallback: open.er-api.com (free, no key, no rate limit advertised)
+    # Primary: open.er-api.com (free, no key, widely reachable)
     try:
         url = f"https://open.er-api.com/v6/latest/{urllib.parse.quote(f)}"
         req = urllib.request.Request(url, headers={"User-Agent": "Jarvis/7.0"})
-        with urllib.request.urlopen(req, timeout=8) as resp:
+        with urllib.request.urlopen(req, timeout=6) as resp:
             data = json.loads(resp.read().decode("utf-8"))
         if data.get("result") == "success":
             rate = (data.get("rates") or {}).get(t)
             if rate is not None:
                 return float(rate), ""
     except Exception as e:
-        return 0.0, f"FX fetch failed (both sources): {e}"
+        last_err = e
 
+    # Fallback: frankfurter.dev (some networks/ISPs block this one)
+    try:
+        url = f"https://api.frankfurter.dev/v1/latest?base={urllib.parse.quote(f)}&symbols={urllib.parse.quote(t)}"
+        req = urllib.request.Request(url, headers={"User-Agent": "Jarvis/7.0"})
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        rate = (data.get("rates") or {}).get(t)
+        if rate is not None:
+            return float(rate), ""
+    except Exception as e:
+        last_err = e
+
+    if last_err is not None:
+        return 0.0, f"FX fetch failed (both sources): {last_err}"
     return 0.0, f"No rate returned for {f} -> {t}."
 
 

@@ -68,6 +68,7 @@ from .tools import scheduling as t_sched
 from .tools import profile as t_profile
 from .tools import excel as t_excel
 from .tools import smart_home as t_ha
+from .tools import phone as t_phone
 from . import watchers as t_watch
 from .plugins_loader import load_plugins, reserved_names_check
 from . import settings as _settings
@@ -637,6 +638,16 @@ TOOLS: list[dict] = [
           {"query": {"type": "string"}}, ["query"]),
     _tool("ha_activate_scene", "Activate a Home Assistant scene by name.",
           {"query": {"type": "string"}}, ["query"]),
+
+    # ===== Phone calls + SMS (Twilio) =====
+    _tool("send_sms",
+          "Send a text message (SMS) via Twilio. Recipient can be a phone number or a saved "
+          "contact name. ALWAYS read back recipient + message and confirm before sending.",
+          {"to": {"type": "string"}, "message": {"type": "string"}}, ["to", "message"]),
+    _tool("make_call",
+          "Place a phone call (via Twilio) that reads a spoken message aloud to the recipient. "
+          "Recipient can be a number or contact name. Confirm before calling.",
+          {"to": {"type": "string"}, "message": {"type": "string"}}, ["to", "message"]),
 ]
 
 TOOL_HANDLERS: dict[str, Any] = {
@@ -880,6 +891,9 @@ TOOL_HANDLERS: dict[str, Any] = {
     "ha_set_brightness": lambda i: t_ha.set_brightness(i["query"], _int(i.get("percent"), 100)),
     "ha_device_state": lambda i: t_ha.device_state(i["query"]),
     "ha_activate_scene": lambda i: t_ha.activate_scene(i["query"]),
+    # Phone (Twilio)
+    "send_sms": lambda i: t_phone.send_sms(i["to"], i["message"]),
+    "make_call": lambda i: t_phone.make_call(i["to"], i["message"]),
 }
 
 

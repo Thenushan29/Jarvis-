@@ -55,6 +55,11 @@ MAX_LISTEN_SECONDS = int(os.getenv("MAX_LISTEN_SECONDS", "15"))
 HA_URL = os.getenv("HA_URL", "").strip()
 HA_TOKEN = os.getenv("HA_TOKEN", "").strip()
 
+# Twilio (phone calls + SMS) — optional
+TWILIO_SID = os.getenv("TWILIO_SID", "").strip()
+TWILIO_TOKEN = os.getenv("TWILIO_TOKEN", "").strip()
+TWILIO_FROM = os.getenv("TWILIO_FROM", "").strip()
+
 DATA_DIR = ROOT / "data"
 DATA_DIR.mkdir(exist_ok=True)
 REMINDERS_FILE = DATA_DIR / "reminders.json"

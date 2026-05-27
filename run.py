@@ -103,30 +103,49 @@ def run_text_mode(brain: Brain, speak_replies: bool) -> int:
 def run_handsfree_mode(brain: Brain) -> int:
     """Continuous listening: just talk and Jarvis responds. No ENTER, no wake word.
 
-    It listens; the moment you speak it records until you pause, transcribes,
-    replies (by voice), then listens again. While Jarvis is speaking it isn't
-    recording, so it won't hear itself.
+    Robustness:
+      - Waits for the mic to actually pick up speech before recording, so silent
+        15-second polls don't trigger phantom replies.
+      - Drops common Whisper hallucinations on near-silence ("you", "thanks", ".").
+      - Pauses briefly after speaking so the mic doesn't catch the TTS tail.
     """
     from jarvis.conversation import is_exit_phrase, farewell
+
+    HALLUCINATIONS = {"you", "thanks", "thank you", "thank you.", "ok", "okay",
+                      "the", "uh", "um", "hmm", "."}
+
+    def _has_real_speech(audio) -> bool:
+        if audio.size == 0:
+            return False
+        return float(np.max(np.abs(audio))) >= 0.015   # peak gate above ambient
+
+    def _is_hallucinated(text: str) -> bool:
+        s = text.strip().lower().rstrip(".!?,")
+        if len(s) < 4:
+            return True
+        return s in HALLUCINATIONS
+
     print("\n=== HANDS-FREE MODE (just talk — no ENTER, no wake word) ===")
     calibrate_silence()
     speak("Hands-free mode active, sir. Just talk to me whenever you like.", "en")
+    time.sleep(0.4)   # let the TTS tail settle before opening the mic
     print("[listening] speak any time. Say 'that's all' to pause, Ctrl+C to quit.\n")
 
     while True:
         try:
-            # record_until_silence listens continuously and returns as soon as
-            # you start speaking and then pause. If you stay silent it returns
-            # empty after the max window and we simply listen again.
             audio = record_until_silence()
+            if not _has_real_speech(audio):
+                continue                       # silence / nothing said
             text, lang = transcribe(audio)
-            if not text.strip():
-                continue
+            if not text.strip() or _is_hallucinated(text):
+                continue                       # ignore Whisper noise-hallucinations
             print(f"[heard:{lang}] {text}")
             if is_exit_phrase(text):
                 speak(farewell(lang), lang)
-                continue   # stay in hands-free; just acknowledge
+                time.sleep(0.4)
+                continue
             _process_user_turn(brain, text, lang)
+            time.sleep(0.4)                    # post-speak settle so we don't hear ourselves
         except (EOFError, KeyboardInterrupt):
             print("\n[exit] bye.")
             return 0
